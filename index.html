@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .employee-inactive {
+            opacity: 0.5;
+        }
+        /* Estilos para la pestaña activa */
+        .tab-active {
+            border-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+            background-color: #eff6ff; /* blue-50 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Sistema de Gestión Financiera</h1>
+            <p class="text-gray-600 mt-2">Dashboard centralizado, Egresos y Nómina.</p>
+        </header>
+
+        <div class="mb-8">
+            <div class="border-b border-gray-200">
+                <nav id="tabs" class="-mb-px flex space-x-4" aria-label="Tabs">
+                    <button data-tab="dashboard" class="tab-button whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm tab-active">
+                        Dashboard
+                    </button>
+                    <button data-tab="egresos" class="tab-button whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Egresos
+                    </button>
+                    <button data-tab="nomina" class="tab-button whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Nómina
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <main>
+            <div id="dashboard-content" class="tab-content">
+                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-2xl shadow-lg flex items-center space-x-4">
+                        <div class="bg-red-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v-1m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2 3-.895 3-2-1.343-2-3-2m0 0V4m0 4c-1.11 0-2.08-.402-2.599-1" /></svg></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Gasto Total (Mes Actual)</p>
+                            <p id="dashboard-total-spent" class="text-2xl font-bold text-gray-900">$0.00</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-lg flex items-center space-x-4">
+                        <div class="bg-blue-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Nómina Pagada (Mes Actual)</p>
+                            <p id="dashboard-total-payroll" class="text-2xl font-bold text-gray-900">$0.00</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-lg flex items-center space-x-4">
+                        <div class="bg-yellow-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Egresos Registrados (Mes Actual)</p>
+                            <p id="dashboard-total-expenses" class="text-2xl font-bold text-gray-900">$0.00</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-lg flex items-center space-x-4">
+                        <div class="bg-green-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Empleados Activos</p>
+                            <p id="dashboard-active-employees" class="text-2xl font-bold text-gray-900">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-center">Resumen Anual de Gastos</h2>
+                    <canvas id="dashboard-main-chart"></canvas>
+                </div>
+            </div>
+
+            <div id="egresos-content" class="tab-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div class="lg:col-span-1 space-y-8">
+                        <div class="bg-white p-6 rounded-2xl shadow-lg">
+                            <h2 class="text-xl font-semibold mb-4">Registrar Egreso</h2>
+                            <form id="add-expense-form" class="space-y-4">
+                                <div><label for="expense-date" class="block text-sm font-medium text-gray-700">Fecha</label><input type="date" id="expense-date" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3"></div>
+                                <div><label for="expense-provider" class="block text-sm font-medium text-gray-700">Proveedor</label><input type="text" id="expense-provider" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Oficina Principal S.A."></div>
+                                <div><label for="expense-reference" class="block text-sm font-medium text-gray-700">Referencia de Pago</label><input type="text" id="expense-reference" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Factura #12345"></div>
+                                <div><label for="expense-detail" class="block text-sm font-medium text-gray-700">Detalle</label><textarea id="expense-detail" rows="3" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Compra de papelería"></textarea></div>
+                                <div><label for="expense-amount" class="block text-sm font-medium text-gray-700">Monto ($)</label><input type="number" id="expense-amount" required min="0" step="0.01" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="1500.00"></div>
+                                <div><label for="expense-concept" class="block text-sm font-medium text-gray-700">Concepto</label><input type="text" id="expense-concept" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Suministros de Oficina"></div>
+                                <div><label for="expense-company" class="block text-sm font-medium text-gray-700">Empresa</label><select id="expense-company" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3"><option value="IESM">IESM</option><option value="UDC">UDC</option><option value="ISA">ISA</option><option value="Externo">Externo</option></select></div>
+                                <div><label for="expense-classification" class="block text-sm font-medium text-gray-700">Clasificación</label><input type="text" id="expense-classification" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Gasto Administrativo"></div>
+                                <div><label class="block text-sm font-medium text-gray-700">Adjuntar Comprobante</label><input type="file" id="expense-file" class="hidden" accept="image/*,.pdf"><button type="button" id="expense-upload-btn" class="w-full mt-1 text-sm border border-gray-300 py-2 rounded-md">Seleccionar Archivo</button><span id="expense-file-name" class="text-xs text-gray-500 block mt-1"></span></div>
+                                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors">Registrar Egreso</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg">
+                        <h2 class="text-xl font-semibold mb-4">Historial de Egresos</h2>
+                        <div id="expense-list-container" class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proveedor / Detalle</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Concepto</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th><th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th></tr></thead>
+                                <tbody id="expense-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                        <div id="expenses-empty" class="text-center py-16 text-gray-500 hidden"><p>No hay egresos registrados.</p></div>
+                    </div>
+                </div>
+                <div class="mt-8 bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-center">Análisis de Egresos</h2>
+                    <div class="flex flex-wrap items-center gap-4 mb-6">
+                        <div><label for="expense-analysis-year-filter" class="text-sm font-medium">Año:</label><select id="expense-analysis-year-filter" class="rounded-lg border-gray-300"></select></div>
+                        <div><label for="expense-analysis-month-filter" class="text-sm font-medium">Mes:</label><select id="expense-analysis-month-filter" class="rounded-lg border-gray-300"></select></div>
+                        <div><label for="expense-company-filter" class="text-sm font-medium">Empresa:</label><select id="expense-company-filter" class="rounded-lg border-gray-300"></select></div>
+                        <div><label for="expense-concept-filter" class="text-sm font-medium">Concepto:</label><select id="expense-concept-filter" class="rounded-lg border-gray-300"></select></div>
+                        <div><label for="expense-classification-filter" class="text-sm font-medium">Clasificación:</label><select id="expense-classification-filter" class="rounded-lg border-gray-300"></select></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+                        <div class="lg:col-span-1 text-center p-4 bg-red-50 rounded-lg"><p class="text-lg font-medium text-red-800">Total de Egresos (Filtrado)</p><p id="expense-total-cost" class="text-3xl font-bold text-red-900 mt-1">$0.00</p></div>
+                        <div class="lg:col-span-2 bg-gray-50 p-6 rounded-2xl"><h3 class="text-lg font-medium text-gray-700 mb-4 text-center">Egresos por Concepto</h3><canvas id="expense-concept-chart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="nomina-content" class="tab-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div class="lg:col-span-1 space-y-8">
+                        <div class="bg-white p-6 rounded-2xl shadow-lg">
+                            <h2 class="text-xl font-semibold mb-4">Agregar Empleado</h2>
+                            <form id="add-employee-form" class="space-y-4">
+                                <div><label for="employee-name" class="block text-sm font-medium text-gray-700">Nombre</label><input type="text" id="employee-name" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Pedro Páramo"></div>
+                                <div><label for="employee-position" class="block text-sm font-medium text-gray-700">Puesto</label><input type="text" id="employee-position" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Contador"></div>
+                                <div><label for="employee-department" class="block text-sm font-medium text-gray-700">Departamento</label><input type="text" id="employee-department" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="Ej. Finanzas"></div>
+                                <div><label for="employee-company" class="block text-sm font-medium text-gray-700">Empresa</label><select id="employee-company" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3"><option value="IESM">IESM</option><option value="UDC">UDC</option><option value="ISA">ISA</option><option value="Externo">Externo</option></select></div>
+                                <div><label for="employee-salary" class="block text-sm font-medium text-gray-700">Salario Mensual ($)</label><input type="number" id="employee-salary" required min="0" step="0.01" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" placeholder="10000.00"></div>
+                                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors">Agregar Empleado</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg">
+                        <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
+                            <h2 class="text-xl font-semibold">Nómina de Empleados</h2>
+                            <div class="flex items-center gap-4 mt-4 sm:mt-0">
+                                <label for="payroll-view-year" class="text-sm font-medium">Año:</label><select id="payroll-view-year" class="rounded-lg border-gray-300"></select>
+                                <label for="payroll-view-month" class="text-sm font-medium">Mes:</label><select id="payroll-view-month" class="rounded-lg border-gray-300"></select>
+                            </div>
+                        </div>
+                        <div id="payroll-progress-container" class="mb-6">
+                            <div class="flex justify-between mb-1"><span class="text-base font-medium text-blue-700">Progreso de Nómina Mensual</span><span id="payroll-progress-text" class="text-sm font-medium text-blue-700">0%</span></div>
+                            <div class="w-full bg-gray-200 rounded-full h-4"><div id="payroll-progress-bar" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div></div>
+                            <p id="payroll-progress-summary" class="text-xs text-right mt-1 text-gray-600"></p>
+                        </div>
+                        <div id="employee-list-container" class="space-y-4"></div>
+                        <div id="payroll-empty" class="text-center py-16 text-gray-500 hidden"><p>No hay empleados registrados para el periodo seleccionado.</p></div>
+                    </div>
+                </div>
+                <div class="mt-8 bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-center">Análisis de Nómina</h2>
+                    <div class="flex flex-wrap items-center gap-4 mb-6">
+                        <div><label for="payroll-analysis-year-filter" class="text-sm font-medium">Año:</label><select id="payroll-analysis-year-filter" class="rounded-lg border-gray-300"></select></div>
+                        <div><label for="payroll-analysis-month-filter" class="text-sm font-medium">Mes:</label><select id="payroll-analysis-month-filter" class="rounded-lg border-gray-300"></select></div>
+                        <div><label for="payroll-company-filter" class="text-sm font-medium">Empresa:</label><select id="payroll-company-filter" class="rounded-lg border-gray-300"></select></div>
+                        <div><label for="payroll-department-filter" class="text-sm font-medium">Departamento:</label><select id="payroll-department-filter" class="rounded-lg border-gray-300"></select></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+                        <div class="lg:col-span-1 text-center p-4 bg-blue-50 rounded-lg"><p class="text-lg font-medium text-blue-800">Costo Total de Nómina (Filtrado)</p><p id="payroll-total-cost" class="text-3xl font-bold text-blue-900 mt-1">$0.00</p></div>
+                        <div class="lg:col-span-2 bg-gray-50 p-6 rounded-2xl"><h3 class="text-lg font-medium text-gray-700 mb-4 text-center">Costo por Departamento</h3><canvas id="payroll-department-chart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="auth-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden z-50 flex items-center justify-center p-4"></div>
+    <div id="payroll-payment-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden z-50 flex items-center justify-center p-4"></div>
+    <div id="payroll-history-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden z-50 flex items-center justify-center p-4"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- CONFIGURACIÓN Y VARIABLES GLOBALES ---
+        let allExpensesCache = [];
+        let allEmployeesCache = [];
+        let expenseConceptChartInstance = null;
+        let payrollDepartmentChartInstance = null;
+        let dashboardChartInstance = null;
+
+        // --- SELECTORES DEL DOM ---
+        const tabsContainer = document.getElementById('tabs');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // EGRESOS
+        const addExpenseForm = document.getElementById('add-expense-form');
+        const expenseListContainer = document.getElementById('expense-list-container');
+        const expensesEmpty = document.getElementById('expenses-empty');
+        const expenseAnalysisYearFilter = document.getElementById('expense-analysis-year-filter');
+        const expenseAnalysisMonthFilter = document.getElementById('expense-analysis-month-filter');
+        const expenseCompanyFilter = document.getElementById('expense-company-filter');
+        const expenseConceptFilter = document.getElementById('expense-concept-filter');
+        const expenseClassificationFilter = document.getElementById('expense-classification-filter');
+
+        // NÓMINA
+        const addEmployeeForm = document.getElementById('add-employee-form');
+        const employeeListContainer = document.getElementById('employee-list-container');
+        const payrollEmpty = document.getElementById('payroll-empty');
+        const payrollPaymentModal = document.getElementById('payroll-payment-modal');
+        const payrollHistoryModal = document.getElementById('payroll-history-modal');
+        const payrollCompanyFilter = document.getElementById('payroll-company-filter');
+        const payrollDepartmentFilter = document.getElementById('payroll-department-filter');
+        const payrollAnalysisYearFilter = document.getElementById('payroll-analysis-year-filter');
+        const payrollAnalysisMonthFilter = document.getElementById('payroll-analysis-month-filter');
+        const payrollViewYear = document.getElementById('payroll-view-year');
+        const payrollViewMonth = document.getElementById('payroll-view-month');
+
+        // --- FUNCIONES DE UTILIDAD (COMPARTIDAS) ---
+        function formatCurrency(value) {
+            if (typeof value !== 'number') {
+                value = parseFloat(value) || 0;
+            }
+            return value.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+        // --- LÓGICA DE DATOS (LocalStorage) ---
+        function loadDataFromLocalStorage() {
+            const expenseData = localStorage.getItem('expensesDB');
+            allExpensesCache = expenseData ? JSON.parse(expenseData) : [];
+            const employeeData = localStorage.getItem('employeesDB');
+            allEmployeesCache = employeeData ? JSON.parse(employeeData) : [];
+        }
+
+        function saveExpensesToLocalStorage() {
+            localStorage.setItem('expensesDB', JSON.stringify(allExpensesCache));
+        }
+        function saveEmployeesToLocalStorage() {
+            localStorage.setItem('employeesDB', JSON.stringify(allEmployeesCache));
+        }
+
+        // --- LÓGICA DE NAVEGACIÓN POR PESTAÑAS ---
+        function setupTabs() {
+            tabsContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+
+                const tab = button.dataset.tab;
+
+                // Actualizar estado activo de botones
+                tabsContainer.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('tab-active');
+                    btn.classList.add('text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                });
+                button.classList.add('tab-active');
+                button.classList.remove('text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+
+                // Mostrar/Ocultar contenido
+                tabContents.forEach(content => {
+                    if (content.id === `${tab}-content`) {
+                        content.classList.remove('hidden');
+                    } else {
+                        content.classList.add('hidden');
+                    }
+                });
+            });
+        }
+        
+        // --- LÓGICA DEL DASHBOARD ---
+        function renderDashboard() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+
+            // Card: Total Egresos (Mes Actual)
+            const totalExpensesMonth = allExpensesCache
+                .filter(e => {
+                    const d = new Date(e.date);
+                    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+                })
+                .reduce((sum, e) => sum + e.amount, 0);
+            document.getElementById('dashboard-total-expenses').textContent = formatCurrency(totalExpensesMonth);
+
+            // Card: Total Nómina Pagada (Mes Actual)
+            const totalPayrollMonth = allEmployeesCache
+                .flatMap(emp => emp.payments)
+                .filter(p => {
+                    const d = new Date(p.date);
+                    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+                })
+                .reduce((sum, p) => sum + p.amount, 0);
+            document.getElementById('dashboard-total-payroll').textContent = formatCurrency(totalPayrollMonth);
+
+            // Card: Gasto Total (Mes Actual)
+            document.getElementById('dashboard-total-spent').textContent = formatCurrency(totalExpensesMonth + totalPayrollMonth);
+
+            // Card: Empleados Activos
+            const activeEmployees = allEmployeesCache.filter(e => e.status === 'active').length;
+            document.getElementById('dashboard-active-employees').textContent = activeEmployees;
+
+            // Gráfico Principal
+            const expenseDataByMonth = Array(12).fill(0);
+            allExpensesCache.forEach(e => {
+                const d = new Date(e.date);
+                if (d.getFullYear() === currentYear) {
+                    expenseDataByMonth[d.getMonth()] += e.amount;
+                }
+            });
+
+            const payrollDataByMonth = Array(12).fill(0);
+            allEmployeesCache.flatMap(emp => emp.payments).forEach(p => {
+                const d = new Date(p.date);
+                if (d.getFullYear() === currentYear) {
+                    payrollDataByMonth[d.getMonth()] += p.amount;
+                }
+            });
+
+            const ctx = document.getElementById('dashboard-main-chart').getContext('2d');
+            if (dashboardChartInstance) dashboardChartInstance.destroy();
+            dashboardChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: MONTH_NAMES,
+                    datasets: [{
+                        label: 'Egresos',
+                        data: expenseDataByMonth,
+                        backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                    }, {
+                        label: 'Nómina',
+                        data: payrollDataByMonth,
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true }
+                    },
+                    plugins: { tooltip: { callbacks: { label: context => formatCurrency(context.parsed.y) } } }
+                }
+            });
+        }
+
+
+        // --- LÓGICA DE EGRESOS ---
+        async function addExpenseFormSubmit(e) {
+            e.preventDefault();
+            if (!await validateAction()) return;
+
+            const fileInput = document.getElementById('expense-file');
+            let receiptData = null;
+            if (fileInput.files[0]) {
+                try {
+                    receiptData = await fileToBase64(fileInput.files[0]);
+                } catch (err) { console.error("Error converting file", err); return; }
+            }
+
+            const expense = {
+                id: 'exp_' + Date.now() + Math.random(),
+                date: document.getElementById('expense-date').value,
+                provider: document.getElementById('expense-provider').value,
+                reference: document.getElementById('expense-reference').value,
+                detail: document.getElementById('expense-detail').value,
+                amount: parseFloat(document.getElementById('expense-amount').value),
+                concept: document.getElementById('expense-concept').value,
+                company: document.getElementById('expense-company').value,
+                classification: document.getElementById('expense-classification').value,
+                receiptData
+            };
+
+            allExpensesCache.push(expense);
+            saveExpensesToLocalStorage();
+            renderExpensesTab();
+            setupExpenseFilters();
+            addExpenseForm.reset();
+            document.getElementById('expense-file-name').textContent = '';
+            renderDashboard();
+        }
+
+        function renderExpensesTab() {
+            renderExpenseList();
+            renderExpenseAnalysis();
+        }
+
+        function renderExpenseList() {
+            const tableBody = document.getElementById('expense-table-body');
+            if (allExpensesCache.length === 0) {
+                expensesEmpty.classList.remove('hidden');
+                tableBody.innerHTML = '';
+                return;
+            }
+            expensesEmpty.classList.add('hidden');
+            const sortedExpenses = [...allExpensesCache].sort((a, b) => new Date(b.date) - new Date(a.date));
+            tableBody.innerHTML = sortedExpenses.map(expense => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${expense.provider}</div>
+                        <div class="text-xs text-gray-500">${expense.detail || 'N/A'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(expense.date + 'T00:00:00').toLocaleDateString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expense.concept}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-right text-red-600">${formatCurrency(expense.amount)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
+                        ${expense.receiptData ? `<button onclick="viewExpenseReceipt('${expense.id}')" class="text-blue-600 hover:underline">Ver</button>` : ''}
+                        <button class="delete-expense-btn text-red-600 hover:text-red-900" data-id="${expense.id}">Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function setupExpenseFilters() {
+            const currentYear = new Date().getFullYear();
+            let yearOptions = '<option value="Todos">Todos</option>';
+            const yearsInRecords = [...new Set(allExpensesCache.map(rec => new Date(rec.date).getFullYear()))].sort((a,b) => b-a);
+            if (yearsInRecords.length === 0) yearsInRecords.push(currentYear);
+            [...new Set(yearsInRecords)].forEach(year => {
+                yearOptions += `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`;
+            });
+            expenseAnalysisYearFilter.innerHTML = yearOptions;
+
+            expenseAnalysisMonthFilter.innerHTML = '<option value="Todos">Todos</option>' + MONTH_NAMES.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+
+            const companies = [...new Set(allExpensesCache.map(e => e.company))].sort();
+            expenseCompanyFilter.innerHTML = '<option value="Todos">Todas</option>' + companies.map(c => `<option value="${c}">${c}</option>`).join('');
+            
+            const concepts = [...new Set(allExpensesCache.map(e => e.concept))].sort();
+            expenseConceptFilter.innerHTML = '<option value="Todos">Todos</option>' + concepts.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            const classifications = [...new Set(allExpensesCache.map(e => e.classification))].sort();
+            expenseClassificationFilter.innerHTML = '<option value="Todos">Todas</option>' + classifications.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+        
+        function renderExpenseAnalysis() {
+            const selectedYear = expenseAnalysisYearFilter.value;
+            const selectedMonth = expenseAnalysisMonthFilter.value;
+            const selectedCompany = expenseCompanyFilter.value;
+            const selectedConcept = expenseConceptFilter.value;
+            const selectedClassification = expenseClassificationFilter.value;
+
+            let filteredExpenses = allExpensesCache;
+
+            if (selectedYear !== 'Todos') filteredExpenses = filteredExpenses.filter(e => new Date(e.date).getFullYear() === parseInt(selectedYear));
+            if (selectedMonth !== 'Todos') filteredExpenses = filteredExpenses.filter(e => new Date(e.date).getMonth() === parseInt(selectedMonth));
+            if (selectedCompany !== 'Todos') filteredExpenses = filteredExpenses.filter(e => e.company === selectedCompany);
+            if (selectedConcept !== 'Todos') filteredExpenses = filteredExpenses.filter(e => e.concept === selectedConcept);
+            if (selectedClassification !== 'Todos') filteredExpenses = filteredExpenses.filter(e => e.classification === selectedClassification);
+
+            const totalCost = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+            document.getElementById('expense-total-cost').textContent = formatCurrency(totalCost);
+
+            const conceptData = filteredExpenses.reduce((acc, exp) => {
+                if (!acc[exp.concept]) acc[exp.concept] = 0;
+                acc[exp.concept] += exp.amount;
+                return acc;
+            }, {});
+
+            const ctx = document.getElementById('expense-concept-chart').getContext('2d');
+            if (expenseConceptChartInstance) expenseConceptChartInstance.destroy();
+            
+            expenseConceptChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(conceptData),
+                    datasets: [{
+                        label: 'Gasto por Concepto',
+                        data: Object.values(conceptData),
+                        backgroundColor: 'rgba(239, 68, 68, 0.6)'
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { tooltip: { callbacks: { label: context => formatCurrency(context.parsed.y) } } }
+                }
+            });
+        }
+
+        function handleExpenseListClick(e) {
+            const button = e.target.closest('button');
+            if(button && button.classList.contains('delete-expense-btn')) {
+                const expenseId = button.dataset.id;
+                openDeleteExpenseModal(expenseId);
+            }
+        }
+        
+        function openDeleteExpenseModal(expenseId) {
+            const modal = document.getElementById('auth-modal');
+            modal.innerHTML = `
+                <div class="bg-white p-6 rounded-2xl shadow-lg w-full max-w-sm">
+                    <h3 class="text-lg font-bold text-center mb-4">Confirmar Eliminación</h3>
+                    <p class="text-center text-sm text-gray-600 mb-4">¿Estás seguro de que quieres eliminar este egreso? Esta acción no se puede deshacer.</p>
+                    <div class="flex justify-end gap-2 pt-4">
+                        <button type="button" class="close-modal-btn px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                        <button id="confirm-delete-btn" type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md">Eliminar</button>
+                    </div>
+                </div>`;
+            modal.classList.remove('hidden');
+            modal.querySelector('.close-modal-btn').onclick = () => modal.classList.add('hidden');
+            modal.querySelector('#confirm-delete-btn').onclick = async () => {
+                if (!await validateAction()) return;
+                allExpensesCache = allExpensesCache.filter(exp => exp.id !== expenseId);
+                saveExpensesToLocalStorage();
+                renderExpensesTab();
+                setupExpenseFilters();
+                modal.classList.add('hidden');
+                renderDashboard();
+            };
+        }
+
+        window.viewExpenseReceipt = function(expenseId) {
+            const expense = allExpensesCache.find(exp => exp.id === expenseId);
+            if (expense && expense.receiptData) {
+                const newWindow = window.open();
+                newWindow.document.write(`<iframe src="${expense.receiptData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+            }
+        }
+
+        // --- LÓGICA DE NÓMINA ---
+        async function addEmployeeFormSubmit(e) {
+            e.preventDefault();
+            if (!await validateAction()) return;
+
+            const employee = {
+                id: 'emp_' + Date.now() + Math.random(),
+                name: document.getElementById('employee-name').value,
+                position: document.getElementById('employee-position').value,
+                department: document.getElementById('employee-department').value,
+                company: document.getElementById('employee-company').value,
+                salary: parseFloat(document.getElementById('employee-salary').value),
+                payments: [],
+                status: 'active',
+                createdAt: new Date().toISOString()
+            };
+
+            allEmployeesCache.push(employee);
+            saveEmployeesToLocalStorage();
+            renderPayrollTab();
+            setupPayrollFilters();
+            addEmployeeForm.reset();
+            renderDashboard();
+        }
+
+        function renderPayrollTab() {
+            const selectedYear = parseInt(payrollViewYear.value);
+            const selectedMonth = parseInt(payrollViewMonth.value);
+
+            const activeEmployeesInPeriod = allEmployeesCache.filter(employee => {
+                const joinedDate = new Date(employee.createdAt);
+                if(employee.status === 'inactive' && (!employee.inactiveDate || new Date(employee.inactiveDate) < new Date(selectedYear, selectedMonth, 1))) {
+                    return false;
+                }
+                return joinedDate <= new Date(selectedYear, selectedMonth + 1, 0);
+            });
+
+            const groupedByDepartment = activeEmployeesInPeriod.reduce((acc, emp) => {
+                const dept = emp.department || 'Sin Departamento';
+                if (!acc[dept]) acc[dept] = [];
+                acc[dept].push(emp);
+                return acc;
+            }, {});
+
+            if (Object.keys(groupedByDepartment).length === 0) {
+                payrollEmpty.classList.remove('hidden');
+                employeeListContainer.innerHTML = '';
+            } else {
+                payrollEmpty.classList.add('hidden');
+                employeeListContainer.innerHTML = Object.keys(groupedByDepartment).sort().map(department => {
+                    const employeesHTML = groupedByDepartment[department].map(employee => {
+                        const paymentsThisPeriod = employee.payments.filter(p => {
+                            const paymentDate = new Date(p.date);
+                            return paymentDate.getMonth() === selectedMonth && paymentDate.getFullYear() === selectedYear;
+                        });
+                        const paidFirstHalf = paymentsThisPeriod.filter(p => p.quincena === 1).reduce((sum, p) => sum + p.amount, 0);
+                        const paidSecondHalf = paymentsThisPeriod.filter(p => p.quincena === 2).reduce((sum, p) => sum + p.amount, 0);
+                        const halfSalary = employee.salary / 2;
+                        const percentageFirstHalf = halfSalary > 0 ? (paidFirstHalf / halfSalary) * 100 : 0;
+                        const percentageSecondHalf = halfSalary > 0 ? (paidSecondHalf / halfSalary) * 100 : 0;
+
+                        return `
+                        <div class="bg-gray-50 p-4 rounded-lg shadow-sm ${employee.status === 'inactive' ? 'employee-inactive' : ''}">
+                            <div class="flex flex-col sm:flex-row justify-between sm:items-center">
+                                <div>
+                                    <p class="font-bold text-lg">${employee.name}</p>
+                                    <p class="text-sm text-gray-600">${employee.position} (${employee.company})</p>
+                                    <p class="text-sm font-medium">${formatCurrency(employee.salary)} / mes</p>
+                                </div>
+                                <div class="flex items-center gap-2 mt-2 sm:mt-0 flex-wrap">
+                                    <button class="pay-btn text-sm bg-green-500 text-white py-1 px-3 rounded-lg" data-id="${employee.id}">Pagar</button>
+                                    <button class="history-btn text-sm bg-blue-500 text-white py-1 px-3 rounded-lg" data-id="${employee.id}">Historial</button>
+                                    <button class="toggle-status-employee-btn text-sm ${employee.status === 'active' ? 'bg-yellow-600' : 'bg-green-600'} text-white py-1 px-3 rounded-lg" data-id="${employee.id}">${employee.status === 'active' ? 'Baja' : 'Reactivar'}</button>
+                                    <button class="delete-employee-btn text-sm bg-red-600 text-white py-1 px-3 rounded-lg" data-id="${employee.id}">Eliminar</button>
+                                </div>
+                            </div>
+                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-500">1ra Quincena:</p>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-green-600 h-2.5 rounded-full" style="width: ${percentageFirstHalf > 100 ? 100 : percentageFirstHalf}%"></div></div>
+                                    <p class="text-xs text-right mt-1">${formatCurrency(paidFirstHalf)} de ${formatCurrency(halfSalary)}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-500">2da Quincena:</p>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-green-600 h-2.5 rounded-full" style="width: ${percentageSecondHalf > 100 ? 100 : percentageSecondHalf}%"></div></div>
+                                    <p class="text-xs text-right mt-1">${formatCurrency(paidSecondHalf)} de ${formatCurrency(halfSalary)}</p>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+
+                    return `<div class="mb-6"><h3 class="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">${department}</h3><div class="space-y-4">${employeesHTML}</div></div>`;
+                }).join('');
+            }
+            updatePayrollProgress();
+            renderPayrollAnalysisCharts();
+        }
+        
+        function setupPayrollFilters() {
+            const companies = [...new Set(allEmployeesCache.map(e => e.company))].sort();
+            const departments = [...new Set(allEmployeesCache.map(e => e.department))].sort();
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth();
+            
+            let yearOptions = '';
+            for(let i = currentYear - 5; i <= currentYear + 5; i++) {
+                yearOptions += `<option value="${i}" ${i === currentYear ? 'selected' : ''}>${i}</option>`;
+            }
+            payrollAnalysisYearFilter.innerHTML = yearOptions;
+            payrollViewYear.innerHTML = yearOptions;
+
+            payrollAnalysisMonthFilter.innerHTML = '<option value="Todos">Todos</option>' + MONTH_NAMES.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+            payrollViewMonth.innerHTML = MONTH_NAMES.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+
+            payrollCompanyFilter.innerHTML = '<option value="Todos">Todas</option>' + companies.map(c => `<option value="${c}">${c}</option>`).join('');
+            payrollDepartmentFilter.innerHTML = '<option value="Todos">Todos</option>' + departments.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+
+        function renderPayrollAnalysisCharts() {
+            const selectedYear = parseInt(payrollAnalysisYearFilter.value);
+            const selectedMonth = payrollAnalysisMonthFilter.value;
+            const selectedCompany = payrollCompanyFilter.value;
+            const selectedDepartment = payrollDepartmentFilter.value;
+
+            let filteredEmployees = allEmployeesCache;
+            if (selectedCompany !== 'Todos') filteredEmployees = filteredEmployees.filter(e => e.company === selectedCompany);
+            if (selectedDepartment !== 'Todos') filteredEmployees = filteredEmployees.filter(e => e.department === selectedDepartment);
+
+            const totalPayments = filteredEmployees.flatMap(emp => emp.payments.filter(p => {
+                const d = new Date(p.date);
+                const yearMatch = selectedYear === 'Todos' || d.getFullYear() === selectedYear;
+                const monthMatch = selectedMonth === 'Todos' || d.getMonth() === parseInt(selectedMonth);
+                return yearMatch && monthMatch;
+            }));
+
+            const totalCost = totalPayments.reduce((sum, p) => sum + p.amount, 0);
+            document.getElementById('payroll-total-cost').textContent = formatCurrency(totalCost);
+
+            const departmentData = filteredEmployees.reduce((acc, emp) => {
+                if(!acc[emp.department]) acc[emp.department] = 0;
+                acc[emp.department] += emp.payments.filter(p => {
+                    const d = new Date(p.date);
+                    return (selectedYear === 'Todos' || d.getFullYear() === selectedYear) && (selectedMonth === 'Todos' || d.getMonth() === parseInt(selectedMonth));
+                }).reduce((sum, p) => sum + p.amount, 0);
+                return acc;
+            }, {});
+
+            const ctx = document.getElementById('payroll-department-chart').getContext('2d');
+            if(payrollDepartmentChartInstance) payrollDepartmentChartInstance.destroy();
+
+            payrollDepartmentChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(departmentData),
+                    datasets: [{
+                        label: 'Gasto por Departamento',
+                        data: Object.values(departmentData),
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { tooltip: { callbacks: { label: context => formatCurrency(context.parsed.y) } } }
+                }
+            });
+        }
+        
+        function updatePayrollProgress() {
+            const selectedYear = parseInt(payrollViewYear.value);
+            const selectedMonth = parseInt(payrollViewMonth.value);
+
+            const activeEmployeesInPeriod = allEmployeesCache.filter(employee => {
+                const joinedDate = new Date(employee.createdAt);
+                if(employee.status === 'inactive' && (!employee.inactiveDate || new Date(employee.inactiveDate) < new Date(selectedYear, selectedMonth, 1))) {
+                    return false;
+                }
+                return joinedDate <= new Date(selectedYear, selectedMonth + 1, 0);
+            });
+
+            const totalSalaryMonth = activeEmployeesInPeriod.reduce((sum, e) => sum + e.salary, 0);
+            const totalPaidMonth = activeEmployeesInPeriod.reduce((sum, e) => {
+                const paymentsInPeriod = e.payments.filter(p => {
+                    const d = new Date(p.date);
+                    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+                });
+                return sum + paymentsInPeriod.reduce((s, p) => s + p.amount, 0);
+            }, 0);
+            
+            const percentage = totalSalaryMonth > 0 ? (totalPaidMonth / totalSalaryMonth) * 100 : 0;
+            document.getElementById('payroll-progress-bar').style.width = `${percentage > 100 ? 100 : percentage}%`;
+            document.getElementById('payroll-progress-text').textContent = `${Math.round(percentage)}%`;
+            document.getElementById('payroll-progress-summary').textContent = `${formatCurrency(totalPaidMonth)} / ${formatCurrency(totalSalaryMonth)}`;
+        }
+
+        function handleEmployeeListClick(e) {
+            const button = e.target.closest('button');
+            if (!button) return;
+            const employeeId = button.dataset.id;
+            if (button.classList.contains('pay-btn')) openPayrollPaymentModal(employeeId);
+            else if (button.classList.contains('history-btn')) openPayrollHistoryModal(employeeId);
+            else if (button.classList.contains('toggle-status-employee-btn')) toggleEmployeeStatus(employeeId);
+            else if (button.classList.contains('delete-employee-btn')) openDeleteEmployeeModal(employeeId);
+        }
+
+        async function openPayrollPaymentModal(employeeId) {
+            const employee = allEmployeesCache.find(emp => emp.id === employeeId);
+            if (!employee) return;
+
+            payrollPaymentModal.innerHTML = `
+            <div class="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md">
+                <h3 class="text-lg font-bold mb-4">Registrar Pago a ${employee.name}</h3>
+                <form id="payroll-payment-form" class="space-y-4">
+                    <div><label for="payroll-amount" class="block text-sm font-medium text-gray-700">Monto a Pagar ($)</label><input type="number" id="payroll-amount" required min="0.01" step="0.01" value="${employee.salary/2}" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3"></div>
+                    <div><label for="payroll-date" class="block text-sm font-medium text-gray-700">Fecha de Pago</label><input type="date" id="payroll-date" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3"></div>
+                    <div><label for="payroll-quincena" class="block text-sm font-medium text-gray-700">Quincena</label><select id="payroll-quincena" required class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3"><option value="1">1ra Quincena</option><option value="2">2da Quincena</option></select></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Adjuntar Comprobante</label><input type="file" id="payroll-receipt-file" class="hidden" accept="image/*,.pdf"><button type="button" id="payroll-upload-btn" class="w-full mt-1 text-sm border border-gray-300 py-2 rounded-md">Seleccionar Archivo</button><span id="payroll-file-name" class="text-xs text-gray-500 block mt-1"></span></div>
+                    <div class="flex justify-end gap-2 pt-4"><button type="button" class="close-modal-btn px-4 py-2 bg-gray-200 rounded-md">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Confirmar Pago</button></div>
+                </form>
+            </div>`;
+            payrollPaymentModal.classList.remove('hidden');
+            document.getElementById('payroll-date').valueAsDate = new Date();
+            document.getElementById('payroll-upload-btn').onclick = () => document.getElementById('payroll-receipt-file').click();
+            document.getElementById('payroll-receipt-file').onchange = () => {
+                const file = document.getElementById('payroll-receipt-file').files[0];
+                const span = document.getElementById('payroll-file-name');
+                if(file) {
+                    if(file.size > 1024 * 1024) {
+                        span.textContent = 'Error: Archivo > 1MB';
+                        span.classList.add('text-red-500');
+                        document.getElementById('payroll-receipt-file').value = '';
+                    } else {
+                        span.textContent = file.name;
+                        span.classList.remove('text-red-500');
+                    }
+                }
+            };
+            payrollPaymentModal.querySelector('.close-modal-btn').onclick = () => payrollPaymentModal.classList.add('hidden');
+            payrollPaymentModal.querySelector('#payroll-payment-form').onsubmit = async (e) => {
+                e.preventDefault();
+                if (!await validateAction()) return;
+                let receiptData = null;
+                const fileInput = document.getElementById('payroll-receipt-file');
+                if (fileInput.files[0]) {
+                    try { receiptData = await fileToBase64(fileInput.files[0]); } catch(err) { console.error("Error", err); return; }
+                }
+                const employeeIndex = allEmployeesCache.findIndex(emp => emp.id === employeeId);
+                if (employeeIndex > -1) {
+                    allEmployeesCache[employeeIndex].payments.push({
+                        id: 'pay_' + Date.now(),
+                        amount: parseFloat(document.getElementById('payroll-amount').value),
+                        date: new Date(document.getElementById('payroll-date').value + 'T12:00:00Z').toISOString(),
+                        quincena: parseInt(document.getElementById('payroll-quincena').value),
+                        receiptData
+                    });
+                    saveEmployeesToLocalStorage();
+                    renderPayrollTab();
+                    renderDashboard();
+                }
+                payrollPaymentModal.classList.add('hidden');
+            };
+        }
+
+        function openPayrollHistoryModal(employeeId) {
+            const employee = allEmployeesCache.find(emp => emp.id === employeeId);
+            if (!employee) return;
+            let historyHTML = '<p class="text-center text-gray-500">No hay pagos registrados.</p>';
+            if(employee.payments.length > 0) {
+                historyHTML = [...employee.payments]
+                    .sort((a,b) => new Date(b.date) - new Date(a.date))
+                    .map(p => `
+                    <li class="p-3 bg-gray-50 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-medium">${formatCurrency(p.amount)}</p>
+                                <p class="text-xs text-gray-500">${new Date(p.date).toLocaleDateString()} - ${p.quincena === 1 ? '1ra' : '2da'} Quincena</p>
+                            </div>
+                            ${p.receiptData ? `<button onclick="viewPayrollReceipt('${employee.id}', '${p.id}')" class="text-xs text-blue-500 hover:underline">Ver</button>` : ''}
+                        </div>
+                    </li>`).join('');
+            }
+            payrollHistoryModal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+                <div class="p-6 border-b"><h3 class="text-xl font-bold">Historial de Pagos de ${employee.name}</h3></div>
+                <div class="p-6 overflow-y-auto"><ul class="space-y-3">${historyHTML}</ul></div>
+                <div class="p-4 bg-gray-50 text-right border-t"><button class="close-modal-btn px-4 py-2 bg-gray-200 rounded-md">Cerrar</button></div>
+            </div>`;
+            payrollHistoryModal.classList.remove('hidden');
+            payrollHistoryModal.querySelector('.close-modal-btn').onclick = () => payrollHistoryModal.classList.add('hidden');
+        }
+
+        async function toggleEmployeeStatus(employeeId) {
+            if (!await validateAction()) return;
+            const employeeIndex = allEmployeesCache.findIndex(emp => emp.id === employeeId);
+            if(employeeIndex > -1) {
+                const currentStatus = allEmployeesCache[employeeIndex].status;
+                allEmployeesCache[employeeIndex].status = currentStatus === 'active' ? 'inactive' : 'active';
+                if(currentStatus === 'active') {
+                    allEmployeesCache[employeeIndex].inactiveDate = new Date().toISOString();
+                } else {
+                    delete allEmployeesCache[employeeIndex].inactiveDate;
+                }
+                saveEmployeesToLocalStorage();
+                renderPayrollTab();
+                renderDashboard();
+            }
+        }
+        
+        function openDeleteEmployeeModal(employeeId) {
+            const modal = document.getElementById('auth-modal');
+            modal.innerHTML = `
+            <div class="bg-white p-6 rounded-2xl shadow-lg w-full max-w-sm">
+                <h3 class="text-lg font-bold text-center mb-4">Confirmar Eliminación</h3>
+                <p class="text-center text-sm text-gray-600 mb-4">¿Estás seguro de eliminar a este empleado? Esta acción es irreversible.</p>
+                <div class="flex justify-end gap-2 pt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                    <button id="confirm-delete-employee-btn" type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md">Eliminar</button>
+                </div>
+            </div>`;
+            modal.classList.remove('hidden');
+            modal.querySelector('.close-modal-btn').onclick = () => modal.classList.add('hidden');
+            modal.querySelector('#confirm-delete-employee-btn').onclick = async () => {
+                if (!await validateAction()) return;
+                allEmployeesCache = allEmployeesCache.filter(emp => emp.id !== employeeId);
+                saveEmployeesToLocalStorage();
+                renderPayrollTab();
+                setupPayrollFilters();
+                modal.classList.add('hidden');
+                renderDashboard();
+            };
+        }
+
+        window.viewPayrollReceipt = function(employeeId, paymentId) {
+            const employee = allEmployeesCache.find(emp => emp.id === employeeId);
+            const payment = employee?.payments.find(p => p.id === paymentId);
+            if (payment && payment.receiptData) {
+                const newWindow = window.open();
+                newWindow.document.write(`<iframe src="${payment.receiptData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+            }
+        }
+        
+        // --- VALIDACIÓN DE ACCIÓN (MODAL) ---
+        function validateAction() {
+            return new Promise(resolve => {
+                const modal = document.getElementById('auth-modal');
+                modal.innerHTML = `
+                <div class="bg-white p-6 rounded-2xl shadow-lg w-full max-w-sm">
+                    <h3 class="text-lg font-bold text-center mb-4">Validación Requerida</h3>
+                    <div class="space-y-4">
+                        <div><label for="auth-user" class="block text-sm font-medium text-gray-700">Usuario</label><input type="text" id="auth-user" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" value="Dulce" readonly></div>
+                        <div><label for="auth-pass" class="block text-sm font-medium text-gray-700">Contraseña</label><input type="password" id="auth-pass" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-lg p-3" autofocus></div>
+                        <p id="auth-error" class="text-red-500 text-sm text-center hidden">Credenciales incorrectas.</p>
+                        <div class="flex gap-2 pt-2">
+                            <button id="auth-cancel-btn" class="w-full py-2 px-4 bg-gray-200 rounded-md">Cancelar</button>
+                            <button id="auth-confirm-btn" class="w-full py-2 px-4 bg-blue-600 text-white rounded-md">Confirmar</button>
+                        </div>
+                    </div>
+                </div>`;
+                modal.classList.remove('hidden');
+
+                const passField = modal.querySelector('#auth-pass');
+                const errorEl = modal.querySelector('#auth-error');
+                const closeModal = () => modal.classList.add('hidden');
+
+                modal.querySelector('#auth-cancel-btn').onclick = () => { closeModal(); resolve(false); };
+                modal.querySelector('#auth-confirm-btn').onclick = () => {
+                    if (passField.value === '1234') { closeModal(); resolve(true); } 
+                    else { errorEl.classList.remove('hidden'); }
+                };
+            });
+        }
+
+        // --- INICIALIZACIÓN DE LA APLICACIÓN ---
+        function initializeApp() {
+            loadDataFromLocalStorage();
+            setupTabs();
+            
+            // Setup Egresos
+            setupExpenseFilters();
+            renderExpensesTab();
+            addExpenseForm.addEventListener('submit', addExpenseFormSubmit);
+            expenseListContainer.addEventListener('click', handleExpenseListClick);
+            [expenseAnalysisYearFilter, expenseAnalysisMonthFilter, expenseCompanyFilter, expenseConceptFilter, expenseClassificationFilter].forEach(el => el.addEventListener('change', renderExpenseAnalysis));
+            document.getElementById('expense-upload-btn').addEventListener('click', () => document.getElementById('expense-file').click());
+            document.getElementById('expense-file').addEventListener('change', () => {
+                const file = document.getElementById('expense-file').files[0];
+                const span = document.getElementById('expense-file-name');
+                if(file) {
+                    if(file.size > 1024 * 1024) { // 1MB limit
+                        span.textContent = 'Error: Archivo > 1MB';
+                        span.classList.add('text-red-500');
+                        document.getElementById('expense-file').value = '';
+                    } else {
+                        span.textContent = file.name;
+                        span.classList.remove('text-red-500');
+                    }
+                }
+            });
+
+            // Setup Nómina
+            setupPayrollFilters();
+            renderPayrollTab();
+            addEmployeeForm.addEventListener('submit', addEmployeeFormSubmit);
+            employeeListContainer.addEventListener('click', handleEmployeeListClick);
+            [payrollCompanyFilter, payrollDepartmentFilter, payrollAnalysisYearFilter, payrollAnalysisMonthFilter, payrollViewYear, payrollViewMonth].forEach(el => el.addEventListener('change', renderPayrollTab));
+
+            // Setup Dashboard
+            renderDashboard();
+        }
+
+        // --- INICIO ---
+        initializeApp();
+    });
+    </script>
+</body>
+</html>
