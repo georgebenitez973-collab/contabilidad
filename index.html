@@ -1,55 +1,1819 @@
-<div id="seccion-egresos">
-    <h1>💸 Registro y Gestión de Egresos</h1>
-
-    <form id="formulario-egreso">
-        <h2>Nuevo Egreso</h2>
-        
-        <label for="fecha-egreso">📅 Fecha:</label>
-        <input type="date" id="fecha-egreso" name="fecha" required>
-        
-        <label for="concepto-egreso">📝 Concepto:</label>
-        <input type="text" id="concepto-egreso" name="concepto" placeholder="Ej: Compra de material de oficina" required>
-        
-        <label for="monto-egreso">💰 Monto ($):</label>
-        <input type="number" id="monto-egreso" name="monto" min="0.01" step="0.01" required>
-        
-        <label for="archivo-soporte">📄 Recibo/Factura (Imagen o PDF):</label>
-        <input type="file" id="archivo-soporte" name="soporte" accept=".jpg, .jpeg, .png, .pdf">
-        
-        <button type="submit">➕ Registrar Egreso</button>
-    </form>
-    
-    <hr>
-
-    <section id="visualizacion-egresos">
-        <h2>Egresos Registrados</h2>
-        
-        <table id="tabla-egresos">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Concepto</th>
-                    <th>Monto</th>
-                    <th>Comprobante</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>2025-09-29</td>
-                    <td>Servicios de consultoría</td>
-                    <td>$ 500.00</td>
-                    <td><a href="#" target="_blank">Ver Archivo</a></td>
-                </tr>
-                </tbody>
-        </table>
-        
-        <hr>
-
-        <div class="controles-descarga">
-            <h3>Exportar Información</h3>
-            <button id="descargar-pdf">⬇️ Descargar como PDF</button>
-            <button id="descargar-csv">⬇️ Descargar como CSV</button>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contabilidad Integral</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <style>
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5f5; border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+  <!-- Login Overlay -->
+  <div id="loginOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90">
+    <div class="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
+      <h1 class="mb-6 text-center text-2xl font-semibold text-indigo-600">Acceso Contable</h1>
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Usuario</label>
+          <input type="text" id="loginUser" required class="w-full rounded-lg border border-slate-200 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring" placeholder="Ingresa tu usuario" />
         </div>
-    </section>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Contraseña</label>
+          <input type="password" id="loginPassword" required class="w-full rounded-lg border border-slate-200 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring" placeholder="Ingresa tu contraseña" />
+        </div>
+        <p id="loginError" class="hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600"></p>
+        <button type="submit" class="w-full rounded-lg bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700">Iniciar sesión</button>
+        <p class="text-center text-xs text-slate-400">Usuario: <strong>Dulce</strong> · Contraseña: <strong>1234</strong></p>
+      </form>
+      <div id="loginLoading" class="mt-6 hidden flex-col items-center space-y-2 text-center text-sm text-slate-500">
+        <svg class="h-8 w-8 animate-spin text-indigo-600" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <span>Conectando con Firestore…</span>
+      </div>
+    </div>
+  </div>
 
-</div>
+  <!-- App -->
+  <div id="app" class="hidden h-screen">
+    <div class="flex h-full">
+      <!-- Sidebar -->
+      <aside class="hidden w-72 flex-shrink-0 flex-col bg-white shadow-xl lg:flex">
+        <div class="border-b border-slate-100 px-6 py-5">
+          <h2 class="text-xl font-semibold text-indigo-600">Contabilidad Académica</h2>
+          <p class="text-sm text-slate-500">Panel integral de gestión financiera</p>
+        </div>
+        <nav class="flex-1 overflow-y-auto px-4 py-6">
+          <ul class="space-y-2" id="navList">
+            <li><button data-section="dashboard" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Dashboard</button></li>
+            <li><button data-section="ingresos" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Ingresos (Cobranza)</button></li>
+            <li><button data-section="egresos" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Egresos Estándar</button></li>
+            <li><button data-section="gasolina" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Gasolina</button></li>
+            <li><button data-section="nomina" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Nómina (Sueldos)</button></li>
+            <li><button data-section="profesores" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Pagos a Profesores</button></li>
+            <li><button data-section="reportes" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Reportes</button></li>
+            <li><button data-section="proyecciones" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Proyecciones</button></li>
+            <li><button data-section="conciliacion" class="nav-button w-full rounded-lg px-4 py-2 text-left font-medium text-slate-600 hover:bg-indigo-50">Conciliación Bancaria</button></li>
+          </ul>
+        </nav>
+        <div class="border-t border-slate-100 px-6 py-4 text-xs text-slate-400">
+          Datos protegidos por UID individual en Firestore.
+        </div>
+      </aside>
+
+      <!-- Content -->
+      <main class="flex-1 overflow-y-auto">
+        <header class="flex flex-col gap-2 border-b border-slate-200 bg-white px-6 py-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 id="sectionTitle" class="text-2xl font-semibold text-slate-800">Dashboard</h1>
+            <p class="text-sm text-slate-500">Resumen general en tiempo real</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="currentUserLabel" class="rounded-full bg-indigo-50 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-indigo-600">UID —</span>
+            <button id="logoutButton" class="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <div class="space-y-12 p-6">
+          <!-- Dashboard -->
+          <section id="section-dashboard" class="space-y-8">
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Saldo Actual</p>
+                <p id="kpi-saldo" class="mt-2 text-3xl font-semibold text-slate-800">$0.00</p>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Ingresos Totales</p>
+                <p id="kpi-ingresos" class="mt-2 text-3xl font-semibold text-emerald-600">$0.00</p>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Egresos Totales</p>
+                <p id="kpi-egresos" class="mt-2 text-3xl font-semibold text-rose-600">$0.00</p>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Última Actualización</p>
+                <p id="kpi-actualizado" class="mt-2 text-xl font-semibold text-slate-800">—</p>
+              </div>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-3">
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Gasto Total Nómina</p>
+                <p id="kpi-nomina" class="mt-2 text-2xl font-semibold text-slate-800">$0.00</p>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Pagos a Profesores</p>
+                <p id="kpi-profes" class="mt-2 text-2xl font-semibold text-slate-800">$0.00</p>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Gasto Total Gasolina</p>
+                <p id="kpi-gasolina" class="mt-2 text-2xl font-semibold text-slate-800">$0.00</p>
+              </div>
+            </div>
+
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-slate-800">Últimas 10 Transacciones</h2>
+                <button id="refreshTransactions" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">Actualizar</button>
+              </div>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Fecha</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Tipo</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Concepto</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-transacciones" class="divide-y divide-slate-100">
+                    <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin información disponible</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Ingresos -->
+          <section id="section-ingresos" class="hidden space-y-8">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-xl font-semibold text-slate-800">Panel de Cobranza</h2>
+              <div class="flex flex-wrap gap-2">
+                <button id="btnNuevoAlumno" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">+ Nuevo Alumno</button>
+                <button id="btnRegistrarIngreso" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">+ Registrar Cobro</button>
+              </div>
+            </div>
+
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 class="text-lg font-semibold text-slate-800">Estado de Alumnos</h3>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Alumno</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Programa</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Generación</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Empresa</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Plan Total</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Pagado</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-alumnos" class="divide-y divide-slate-100">
+                    <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">Registra alumnos para comenzar el seguimiento</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-2">
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-800">Distribución de Estados</h3>
+                <canvas id="chart-cobranza" height="260"></canvas>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-800">Cronograma de Ingresos Recientes</h3>
+                <div class="mt-3 overflow-x-auto">
+                  <table class="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead class="bg-slate-50">
+                      <tr>
+                        <th class="px-4 py-2 text-left font-medium text-slate-500">Fecha</th>
+                        <th class="px-4 py-2 text-left font-medium text-slate-500">Alumno</th>
+                        <th class="px-4 py-2 text-left font-medium text-slate-500">Concepto</th>
+                        <th class="px-4 py-2 text-right font-medium text-slate-500">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tabla-ingresos" class="divide-y divide-slate-100">
+                      <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin cobranza registrada</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Egresos -->
+          <section id="section-egresos" class="hidden space-y-8">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-semibold text-slate-800">Egresos Estándar</h2>
+              <button data-type="standard" class="btn-nueva-transaccion rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">+ Nueva Transacción</button>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Resumen de Egresos</h3>
+                <span id="resumen-egresos" class="text-sm text-slate-500">$0.00</span>
+              </div>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Fecha</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Detalle</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Proveedor</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Concepto</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Clasificación</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-egresos" class="divide-y divide-slate-100">
+                    <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin egresos registrados</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Gasolina -->
+          <section id="section-gasolina" class="hidden space-y-8">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-semibold text-slate-800">Control de Gasolina</h2>
+              <button data-type="gasoline" class="btn-nueva-transaccion rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">+ Nueva Carga</button>
+            </div>
+            <div class="grid gap-6 lg:grid-cols-2">
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-800">Gasto por Conductor</h3>
+                <canvas id="chart-gas-drivers" height="260"></canvas>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-800">Gasto por Vehículo</h3>
+                <canvas id="chart-gas-vehicles" height="260"></canvas>
+              </div>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Detalle de Cargas</h3>
+                <span id="resumen-gasolina" class="text-sm text-slate-500">$0.00</span>
+              </div>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Fecha</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Conductor</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Vehículo</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Forma de Pago</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Subtotal</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">IVA</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-gasolina" class="divide-y divide-slate-100">
+                    <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">No se han registrado cargas</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Nómina -->
+          <section id="section-nomina" class="hidden space-y-8">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-xl font-semibold text-slate-800">Gestión de Nómina</h2>
+              <div class="flex flex-wrap gap-2">
+                <button id="btnNuevoEmpleado" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">+ Nuevo Empleado</button>
+                <button id="btnRegistrarNomina" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">+ Registrar Pago</button>
+              </div>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 class="text-lg font-semibold text-slate-800">Maestro de Empleados</h3>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Empleado</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Empresa</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Salario Mensual</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Quincena</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-empleados" class="divide-y divide-slate-100">
+                    <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Agrega empleados para gestionar la nómina</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-2">
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Seguimiento de Pagos</h3>
+                    <p class="text-sm text-slate-500">Selecciona una quincena para evaluar el progreso</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <select id="selectQuincena" class="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring">
+                      <option value="1">1ª Quincena</option>
+                      <option value="2">2ª Quincena</option>
+                    </select>
+                    <input type="month" id="selectMesNomina" class="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring" />
+                  </div>
+                </div>
+                <canvas id="chart-nomina" height="240" class="mt-4"></canvas>
+              </div>
+              <div class="rounded-2xl bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-800">Pagos Registrados</h3>
+                <div class="mt-3 h-64 overflow-y-auto">
+                  <ul id="lista-pagos-nomina" class="space-y-3 text-sm text-slate-600">
+                    <li class="text-center text-slate-400">No hay pagos capturados</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Profesores -->
+          <section id="section-profesores" class="hidden space-y-8">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-semibold text-slate-800">Pagos a Profesores</h2>
+              <button id="btnPagoProfesor" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">+ Registrar Pago</button>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 class="text-lg font-semibold text-slate-800">Histórico de Pagos</h3>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Fecha</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Profesor</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Concepto</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Monto</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Comprobante</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-profesores" class="divide-y divide-slate-100">
+                    <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Registra tu primer pago a profesor</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Reportes -->
+          <section id="section-reportes" class="hidden space-y-8">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-semibold text-slate-800">Reportes Analíticos</h2>
+              <span class="text-sm text-slate-500">Totales agrupados por concepto y categoría</span>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 class="text-lg font-semibold text-slate-800">Resumen por Categoría</h3>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Categoría</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Concepto</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Monto</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Transacciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-reportes" class="divide-y divide-slate-100">
+                    <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Aún no hay información consolidada</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Proyecciones -->
+          <section id="section-proyecciones" class="hidden space-y-8">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-semibold text-slate-800">Proyección de Flujo de Caja (6 meses)</h2>
+              <span id="resumen-proyecciones" class="text-sm text-slate-500">Ingresos vs Egresos proyectados</span>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Mes</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Ingresos</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Egresos</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Flujo Neto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-proyecciones" class="divide-y divide-slate-100">
+                    <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Completa la información para generar una proyección</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <canvas id="chart-proyecciones" height="280" class="mt-6"></canvas>
+            </div>
+          </section>
+
+          <!-- Conciliación -->
+          <section id="section-conciliacion" class="hidden space-y-8">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-xl font-semibold text-slate-800">Conciliación Bancaria</h2>
+                <p class="text-sm text-slate-500">Arrastra tus CSV para clasificarlos automáticamente</p>
+              </div>
+              <label class="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                <input type="file" id="inputConciliacion" accept=".csv" multiple class="hidden" />
+                Cargar CSV
+              </label>
+            </div>
+
+            <div id="dropZone" class="flex min-h-[160px] items-center justify-center rounded-2xl border-2 border-dashed border-indigo-300 bg-white/60 p-6 text-center text-slate-500">
+              <div>
+                <p class="text-lg font-semibold text-indigo-500">Arrastra y suelta aquí tus extractos</p>
+                <p class="text-sm">Los datos serán limpiados, clasificados y almacenados en Firestore</p>
+              </div>
+            </div>
+
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 class="text-lg font-semibold text-slate-800">Movimientos Conciliados</h3>
+              <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Fecha</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Descripción</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Empresa</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Categoría</th>
+                      <th class="px-4 py-2 text-left font-medium text-slate-500">Programa</th>
+                      <th class="px-4 py-2 text-right font-medium text-slate-500">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-conciliacion" class="divide-y divide-slate-100">
+                    <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Carga archivos para visualizar la conciliación</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modales -->
+  <div id="transactionModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 p-4">
+    <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 id="transactionModalTitle" class="text-xl font-semibold text-slate-800">Nueva Transacción</h3>
+        <button data-close="transactionModal" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <span class="sr-only">Cerrar</span>
+          ✕
+        </button>
+      </div>
+      <form id="formTransaccion" class="mt-4 space-y-6">
+        <input type="hidden" id="transactionType" value="standard" />
+        <div class="grid gap-4 md:grid-cols-2" data-form="standard">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Fecha</label>
+            <input type="date" id="stdFecha" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Monto</label>
+            <input type="number" id="stdMonto" min="0" step="0.01" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-slate-600">Detalle / Descripción</label>
+            <textarea id="stdDetalle" rows="2" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" required></textarea>
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Proveedor / Solicitante</label>
+            <input type="text" id="stdProveedor" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" required />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Referencia de Pago</label>
+            <input type="text" id="stdReferencia" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Concepto</label>
+            <input type="text" id="stdConcepto" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" required />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Empresa</label>
+            <input type="text" id="stdEmpresa" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-slate-600">Clasificación</label>
+            <input type="text" id="stdClasificacion" placeholder="Gastos Dr Conde, Gastos Operativos, etc." class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+        </div>
+
+        <div class="hidden space-y-4" data-form="gasoline">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Fecha</label>
+              <input type="date" id="gasFecha" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" required />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Subtotal</label>
+              <input type="number" id="gasSubtotal" min="0" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" required />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">IVA (16%)</label>
+              <input type="number" id="gasIva" readonly class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Total</label>
+              <input type="number" id="gasTotal" readonly class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" />
+            </div>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Cantidad (Litros)</label>
+              <input type="number" id="gasCantidad" min="0" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Precio x Litro</label>
+              <input type="number" id="gasPrecio" min="0" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Forma de Pago</label>
+              <input type="text" id="gasFormaPago" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Nombre (Conductor)</label>
+              <input type="text" id="gasNombre" list="listaConductores" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+              <datalist id="listaConductores">
+                <option value="Jorge"></option>
+                <option value="Dulce"></option>
+                <option value="Ana"></option>
+                <option value="Carlos"></option>
+              </datalist>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600"># Tarjeta</label>
+              <input type="text" id="gasTarjeta" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Auto</label>
+              <input type="text" id="gasAuto" list="listaAutos" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+              <datalist id="listaAutos">
+                <option value="Sentra"></option>
+                <option value="Civic"></option>
+                <option value="Versa"></option>
+                <option value="Corolla"></option>
+              </datalist>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-600">Marca</label>
+              <input type="text" id="gasMarca" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="mb-1 block text-sm font-medium text-slate-600">Comprobante</label>
+              <input type="file" id="gasComprobante" class="w-full rounded-lg border border-slate-200 px-3 py-2" />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3">
+          <button type="button" data-close="transactionModal" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="empleadoModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 p-4">
+    <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-semibold text-slate-800">Nuevo Empleado</h3>
+        <button data-close="empleadoModal" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">✕</button>
+      </div>
+      <form id="formEmpleado" class="mt-4 space-y-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Nombre</label>
+          <input type="text" id="empNombre" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Empresa</label>
+          <input type="text" id="empEmpresa" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Salario Mensual Bruto</label>
+          <input type="number" id="empSalario" min="0" step="0.01" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" data-close="empleadoModal" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="nominaModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 p-4">
+    <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-semibold text-slate-800">Registrar Pago de Nómina</h3>
+        <button data-close="nominaModal" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">✕</button>
+      </div>
+      <form id="formNomina" class="mt-4 space-y-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Empleado</label>
+          <select id="nomEmpleado" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring"></select>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Fecha de Pago</label>
+            <input type="date" id="nomFecha" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Quincena</label>
+            <select id="nomQuincena" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring">
+              <option value="1">1ª</option>
+              <option value="2">2ª</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Monto Pagado</label>
+          <input type="number" id="nomMonto" min="0" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" required />
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" data-close="nominaModal" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="alumnoModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 p-4">
+    <div class="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-semibold text-slate-800">Registrar Alumno</h3>
+        <button data-close="alumnoModal" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">✕</button>
+      </div>
+      <form id="formAlumno" class="mt-4 grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Nombre</label>
+          <input type="text" id="alNombre" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Fecha de Inscripción</label>
+          <input type="date" id="alFecha" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Programa</label>
+          <input type="text" id="alPrograma" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Generación</label>
+          <input type="text" id="alGeneracion" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Empresa</label>
+          <input type="text" id="alEmpresa" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Monto Total del Plan</label>
+          <input type="number" id="alMonto" min="0" step="0.01" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600"># Mensualidades</label>
+          <input type="number" id="alMensualidades" min="1" step="1" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Beca / Descuento (%)</label>
+          <input type="number" id="alBeca" min="0" max="100" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" value="0" />
+        </div>
+        <div class="md:col-span-2 flex justify-end gap-3">
+          <button type="button" data-close="alumnoModal" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="ingresoModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 p-4">
+    <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-semibold text-slate-800">Registrar Cobro</h3>
+        <button data-close="ingresoModal" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">✕</button>
+      </div>
+      <form id="formIngreso" class="mt-4 space-y-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Alumno</label>
+          <select id="ingAlumno" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring"></select>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Fecha</label>
+            <input type="date" id="ingFecha" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Monto</label>
+            <input type="number" id="ingMonto" min="0" step="0.01" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Concepto</label>
+          <input type="text" id="ingConcepto" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" placeholder="Mensualidad, Inscripción, etc." required />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Referencia</label>
+          <input type="text" id="ingReferencia" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" data-close="ingresoModal" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="profesorModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 p-4">
+    <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-semibold text-slate-800">Pago a Profesor</h3>
+        <button data-close="profesorModal" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">✕</button>
+      </div>
+      <form id="formProfesor" class="mt-4 space-y-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Nombre</label>
+          <input type="text" id="profNombre" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Fecha</label>
+            <input type="date" id="profFecha" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-slate-600">Monto</label>
+            <input type="number" id="profMonto" min="0" step="0.01" required class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring" />
+          </div>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Concepto de Pago</label>
+          <select id="profConcepto" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring">
+            <option value="Quincena">Quincena</option>
+            <option value="Curso">Curso</option>
+            <option value="Honorarios">Honorarios</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-600">Comprobante</label>
+          <input type="file" id="profComprobante" class="w-full rounded-lg border border-slate-200 px-3 py-2" />
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" data-close="profesorModal" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    const firebaseConfig = {
+      apiKey: "REEMPLAZA_CON_TU_API_KEY",
+      authDomain: "REEMPLAZA_CON_TU_AUTH_DOMAIN",
+      projectId: "REEMPLAZA_CON_TU_PROJECT_ID",
+      storageBucket: "REEMPLAZA_CON_TU_STORAGE_BUCKET",
+      messagingSenderId: "REEMPLAZA_CON_TU_SENDER_ID",
+      appId: "REEMPLAZA_CON_TU_APP_ID"
+    };
+
+    const state = {
+      uid: null,
+      transactions: [],
+      employees: [],
+      payrollPayments: [],
+      professorPayments: [],
+      students: [],
+      conciliations: [],
+      charts: {}
+    };
+
+    let appFirebase = null;
+    let db = null;
+    let auth = null;
+    let unsubscribers = [];
+
+    const formatter = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+    const driverCardMap = {
+      'Jorge': '6576',
+      'Dulce': '8291',
+      'Ana': '1945',
+      'Carlos': '9034'
+    };
+
+    const autoBrandMap = {
+      'Sentra': 'Nissan',
+      'Civic': 'Honda',
+      'Versa': 'Nissan',
+      'Corolla': 'Toyota'
+    };
+
+    const navButtons = Array.from(document.querySelectorAll('.nav-button'));
+    const sections = {
+      dashboard: document.getElementById('section-dashboard'),
+      ingresos: document.getElementById('section-ingresos'),
+      egresos: document.getElementById('section-egresos'),
+      gasolina: document.getElementById('section-gasolina'),
+      nomina: document.getElementById('section-nomina'),
+      profesores: document.getElementById('section-profesores'),
+      reportes: document.getElementById('section-reportes'),
+      proyecciones: document.getElementById('section-proyecciones'),
+      conciliacion: document.getElementById('section-conciliacion')
+    };
+
+    const sectionTitle = document.getElementById('sectionTitle');
+    const currentUserLabel = document.getElementById('currentUserLabel');
+
+    function showSection(key) {
+      Object.entries(sections).forEach(([name, section]) => {
+        if (section) {
+          section.classList.toggle('hidden', name !== key);
+        }
+      });
+      navButtons.forEach(btn => {
+        const active = btn.dataset.section === key;
+        btn.classList.toggle('bg-indigo-600', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('text-slate-600', !active);
+      });
+      const titles = {
+        dashboard: 'Dashboard',
+        ingresos: 'Ingresos y Cobranza',
+        egresos: 'Egresos Estándar',
+        gasolina: 'Control de Gasolina',
+        nomina: 'Gestión de Nómina',
+        profesores: 'Pagos a Profesores',
+        reportes: 'Reportes Analíticos',
+        proyecciones: 'Proyecciones Financieras',
+        conciliacion: 'Conciliación Bancaria'
+      };
+      sectionTitle.textContent = titles[key] || 'Panel';
+    }
+
+    navButtons.forEach(btn => btn.addEventListener('click', () => showSection(btn.dataset.section)));
+
+    const loginForm = document.getElementById('loginForm');
+    const loginOverlay = document.getElementById('loginOverlay');
+    const loginError = document.getElementById('loginError');
+    const loginLoading = document.getElementById('loginLoading');
+    const appContainer = document.getElementById('app');
+    const logoutButton = document.getElementById('logoutButton');
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const user = document.getElementById('loginUser').value.trim();
+      const pass = document.getElementById('loginPassword').value.trim();
+      if (user !== 'Dulce' || pass !== '1234') {
+        loginError.textContent = 'Credenciales inválidas. Intenta nuevamente.';
+        loginError.classList.remove('hidden');
+        return;
+      }
+      loginError.classList.add('hidden');
+      loginLoading.classList.remove('hidden');
+      loginForm.classList.add('hidden');
+      try {
+        await initializeFirebase();
+        loginOverlay.classList.add('hidden');
+        appContainer.classList.remove('hidden');
+        showSection('dashboard');
+      } catch (error) {
+        console.error('Error al inicializar Firebase', error);
+        loginError.textContent = 'No fue posible conectar con Firebase. Revisa tu configuración.';
+        loginError.classList.remove('hidden');
+        loginForm.classList.remove('hidden');
+      } finally {
+        loginLoading.classList.add('hidden');
+      }
+    });
+
+    logoutButton.addEventListener('click', async () => {
+      if (!auth) return;
+      for (const unsubscribe of unsubscribers) {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      }
+      unsubscribers = [];
+      await auth.signOut();
+      state.uid = null;
+      currentUserLabel.textContent = 'UID —';
+      appContainer.classList.add('hidden');
+      loginOverlay.classList.remove('hidden');
+      loginForm.reset();
+      loginForm.classList.remove('hidden');
+    });
+
+    async function initializeFirebase() {
+      if (firebaseConfig.apiKey.startsWith('REEMPLAZA')) {
+        throw new Error('Configura tus credenciales de Firebase antes de continuar.');
+      }
+      if (!appFirebase) {
+        appFirebase = firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        auth = firebase.auth();
+      }
+      const credential = await auth.signInAnonymously();
+      state.uid = credential.user.uid;
+      currentUserLabel.textContent = `UID ${state.uid.slice(0, 6)}…`;
+      bindRealtimeListeners();
+    }
+
+    function userCollection(name) {
+      if (!state.uid) throw new Error('UID no disponible');
+      return db.collection('users').doc(state.uid).collection(name);
+    }
+
+    function bindRealtimeListeners() {
+      unsubscribers.forEach(fn => fn && fn());
+      unsubscribers = [];
+      unsubscribers.push(userCollection('transactions').orderBy('date', 'desc').limit(200).onSnapshot(snapshot => {
+        state.transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        refreshAllViews();
+      }));
+      unsubscribers.push(userCollection('employees').orderBy('name').onSnapshot(snapshot => {
+        state.employees = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updateEmployees();
+        updatePayrollCharts();
+        updateProjections();
+      }));
+      unsubscribers.push(userCollection('payroll_payments').orderBy('paymentDate', 'desc').onSnapshot(snapshot => {
+        state.payrollPayments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updatePayrollPayments();
+        updatePayrollCharts();
+      }));
+      unsubscribers.push(userCollection('professor_payments').orderBy('date', 'desc').onSnapshot(snapshot => {
+        state.professorPayments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updateProfessorTable();
+        updateDashboardKpis();
+      }));
+      unsubscribers.push(userCollection('students').orderBy('name').onSnapshot(snapshot => {
+        state.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        populateStudentOptions();
+        updateStudentsTable();
+        updateIncomeStatus();
+        updateProjections();
+      }));
+      unsubscribers.push(userCollection('conciliations').orderBy('date', 'desc').limit(200).onSnapshot(snapshot => {
+        state.conciliations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updateConciliationTable();
+      }));
+    }
+
+    function refreshAllViews() {
+      updateDashboardKpis();
+      updateTransactionsTable();
+      updateExpensesTable();
+      updateGasolineSection();
+      updateIncomeTimeline();
+      updateIncomeStatus();
+      updateReports();
+      updateProjections();
+      updatePayrollCharts();
+    }
+
+    function toDate(value) {
+      if (!value) return null;
+      if (value.toDate) return value.toDate();
+      if (typeof value === 'string') return new Date(value);
+      if (value instanceof Date) return value;
+      return new Date(value);
+    }
+
+    function formatDate(value) {
+      const date = toDate(value);
+      if (!date || isNaN(date.getTime())) return '—';
+      return date.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function sumAmount(items = []) {
+      return items.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+    }
+
+    function updateDashboardKpis() {
+      const ingresos = state.transactions.filter(t => t.type === 'income');
+      const egresos = state.transactions.filter(t => t.type === 'expense');
+      const totalIngresos = sumAmount(ingresos);
+      const totalEgresos = sumAmount(egresos);
+      const saldo = totalIngresos - totalEgresos;
+      document.getElementById('kpi-saldo').textContent = formatter.format(saldo);
+      document.getElementById('kpi-ingresos').textContent = formatter.format(totalIngresos);
+      document.getElementById('kpi-egresos').textContent = formatter.format(totalEgresos);
+      const lastUpdate = state.transactions[0]?.date ? formatDate(state.transactions[0].date) : '—';
+      document.getElementById('kpi-actualizado').textContent = lastUpdate;
+      const totalNomina = state.payrollPayments.reduce((acc, payment) => acc + (Number(payment.amount) || 0), 0);
+      const totalProfes = state.professorPayments.reduce((acc, payment) => acc + (Number(payment.amount) || 0), 0);
+      const totalGasolina = state.transactions.filter(t => t.category === 'gasoline').reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
+      document.getElementById('kpi-nomina').textContent = formatter.format(totalNomina);
+      document.getElementById('kpi-profes').textContent = formatter.format(totalProfes);
+      document.getElementById('kpi-gasolina').textContent = formatter.format(totalGasolina);
+    }
+
+    function updateTransactionsTable() {
+      const tbody = document.getElementById('tabla-transacciones');
+      tbody.innerHTML = '';
+      if (!state.transactions.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin información disponible</td></tr>';
+        return;
+      }
+      state.transactions.slice(0, 10).forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${formatDate(item.date)}</td>
+          <td class="px-4 py-2 capitalize">${item.type || '—'}</td>
+          <td class="px-4 py-2">${item.concept || item.detail || '—'}</td>
+          <td class="px-4 py-2 text-right font-medium ${item.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}">${formatter.format(Number(item.amount) || 0)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateExpensesTable() {
+      const tbody = document.getElementById('tabla-egresos');
+      const egresos = state.transactions.filter(t => t.type === 'expense' && t.category !== 'gasoline');
+      tbody.innerHTML = '';
+      if (!egresos.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin egresos registrados</td></tr>';
+      } else {
+        egresos.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="px-4 py-2">${formatDate(item.date)}</td>
+            <td class="px-4 py-2">${item.detail || '—'}</td>
+            <td class="px-4 py-2">${item.vendor || '—'}</td>
+            <td class="px-4 py-2">${item.concept || '—'}</td>
+            <td class="px-4 py-2">${item.classification || '—'}</td>
+            <td class="px-4 py-2 text-right font-medium text-rose-600">${formatter.format(Number(item.amount) || 0)}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+      const total = egresos.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+      document.getElementById('resumen-egresos').textContent = formatter.format(total);
+    }
+
+    function updateGasolineSection() {
+      const gasoline = state.transactions.filter(t => t.category === 'gasoline');
+      const tbody = document.getElementById('tabla-gasolina');
+      tbody.innerHTML = '';
+      if (!gasoline.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">No se han registrado cargas</td></tr>';
+      } else {
+        gasoline.forEach(item => {
+          const info = item.gasoline || {};
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="px-4 py-2">${formatDate(item.date)}</td>
+            <td class="px-4 py-2">${info.driver || '—'}</td>
+            <td class="px-4 py-2">${info.vehicle || '—'} (${info.brand || '—'})</td>
+            <td class="px-4 py-2">${info.paymentMethod || '—'}</td>
+            <td class="px-4 py-2 text-right">${formatter.format(Number(info.subtotal) || 0)}</td>
+            <td class="px-4 py-2 text-right">${formatter.format(Number(info.iva) || 0)}</td>
+            <td class="px-4 py-2 text-right font-medium text-rose-600">${formatter.format(Number(item.amount) || 0)}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+      const total = gasoline.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+      document.getElementById('resumen-gasolina').textContent = formatter.format(total);
+      renderGasCharts(gasoline);
+    }
+
+    function updateIncomeTimeline() {
+      const tbody = document.getElementById('tabla-ingresos');
+      const ingresos = state.transactions.filter(t => t.type === 'income');
+      tbody.innerHTML = '';
+      if (!ingresos.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin cobranza registrada</td></tr>';
+        return;
+      }
+      ingresos.slice(0, 10).forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${formatDate(item.date)}</td>
+          <td class="px-4 py-2">${item.studentName || '—'}</td>
+          <td class="px-4 py-2">${item.concept || '—'}</td>
+          <td class="px-4 py-2 text-right font-medium text-emerald-600">${formatter.format(Number(item.amount) || 0)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function monthsBetween(start, end) {
+      const s = new Date(start.getFullYear(), start.getMonth(), 1);
+      const e = new Date(end.getFullYear(), end.getMonth(), 1);
+      const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+      return Math.max(0, months + 1);
+    }
+
+    function updateStudentsTable() {
+      const tbody = document.getElementById('tabla-alumnos');
+      tbody.innerHTML = '';
+      if (!state.students.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">Registra alumnos para comenzar el seguimiento</td></tr>';
+        return;
+      }
+      state.students.forEach(student => {
+        const planTotal = Number(student.planAmount) || 0;
+        const beca = Number(student.scholarship || 0);
+        const planConDescuento = planTotal * (1 - beca / 100);
+        const mensualidades = Number(student.installments) || 1;
+        const mensualidad = mensualidades ? planConDescuento / mensualidades : planConDescuento;
+        const ingresosAlumno = state.transactions.filter(t => t.studentId === student.id);
+        const pagado = ingresosAlumno.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+        const estadoInfo = calcularEstadoAlumno(student, mensualidad, pagado, planConDescuento);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${student.name}</td>
+          <td class="px-4 py-2">${student.program || '—'}</td>
+          <td class="px-4 py-2">${student.generation || '—'}</td>
+          <td class="px-4 py-2">${student.company || '—'}</td>
+          <td class="px-4 py-2 text-right">${formatter.format(planConDescuento)}</td>
+          <td class="px-4 py-2 text-right">${formatter.format(pagado)}</td>
+          <td class="px-4 py-2 font-medium ${estadoInfo.class}">${estadoInfo.status}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function calcularEstadoAlumno(student, mensualidad, pagado, totalPlan) {
+      const hoy = new Date();
+      const fechaInscripcion = toDate(student.enrollmentDate) || hoy;
+      const mensualidades = Number(student.installments) || 1;
+      const transcurridos = Math.min(monthsBetween(fechaInscripcion, hoy), mensualidades);
+      const requerido = mensualidad * transcurridos;
+      let status = 'Al Día';
+      let cls = 'text-emerald-600';
+      if (pagado >= totalPlan - 1) {
+        status = 'Pagado Completo';
+        cls = 'text-indigo-600';
+      } else if (pagado > requerido + mensualidad * 0.5) {
+        status = 'Adelantado';
+        cls = 'text-sky-600';
+      } else if (pagado + mensualidad * 0.3 < requerido) {
+        status = 'Moroso';
+        cls = 'text-rose-600';
+      }
+      return { status, class: cls };
+    }
+
+    function updateIncomeStatus() {
+      const estados = { 'Al Día': 0, 'Moroso': 0, 'Adelantado': 0, 'Pagado Completo': 0 };
+      state.students.forEach(student => {
+        const planTotal = Number(student.planAmount) || 0;
+        const beca = Number(student.scholarship || 0);
+        const planConDescuento = planTotal * (1 - beca / 100);
+        const mensualidades = Number(student.installments) || 1;
+        const mensualidad = mensualidades ? planConDescuento / mensualidades : planConDescuento;
+        const ingresosAlumno = state.transactions.filter(t => t.studentId === student.id);
+        const pagado = ingresosAlumno.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+        const estado = calcularEstadoAlumno(student, mensualidad, pagado, planConDescuento).status;
+        estados[estado] = (estados[estado] || 0) + 1;
+      });
+      renderPieChart('chart-cobranza', 'cobranza', Object.keys(estados), Object.values(estados), ['#22c55e', '#f97316', '#0ea5e9', '#6366f1']);
+    }
+
+    function renderPieChart(elementId, chartKey, labels, data, colors) {
+      const ctx = document.getElementById(elementId);
+      const total = data.reduce((acc, value) => acc + value, 0);
+      const dataset = total === 0 ? [1] : data;
+      const chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: total === 0 ? ['Sin datos'] : labels,
+          datasets: [{ data: dataset, backgroundColor: colors }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = data[context.dataIndex] || 0;
+                  if (total === 0) return 'Sin datos';
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return `${labels[context.dataIndex]}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+      if (state.charts[chartKey]) {
+        state.charts[chartKey].destroy();
+      }
+      state.charts[chartKey] = chart;
+    }
+
+    function renderGasCharts(gasoline) {
+      const porConductor = {};
+      const porVehiculo = {};
+      gasoline.forEach(item => {
+        const info = item.gasoline || {};
+        const driver = info.driver || 'Sin conductor';
+        const vehicle = info.vehicle || 'Sin vehículo';
+        porConductor[driver] = (porConductor[driver] || 0) + (Number(item.amount) || 0);
+        porVehiculo[vehicle] = (porVehiculo[vehicle] || 0) + (Number(item.amount) || 0);
+      });
+      renderPieChart('chart-gas-drivers', 'gasDrivers', Object.keys(porConductor), Object.values(porConductor), ['#4f46e5', '#ec4899', '#0ea5e9', '#22c55e', '#f97316']);
+      renderPieChart('chart-gas-vehicles', 'gasVehicles', Object.keys(porVehiculo), Object.values(porVehiculo), ['#f97316', '#0ea5e9', '#a855f7', '#22c55e', '#ef4444']);
+    }
+
+    function updateReports() {
+      const tbody = document.getElementById('tabla-reportes');
+      tbody.innerHTML = '';
+      if (!state.transactions.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Aún no hay información consolidada</td></tr>';
+        return;
+      }
+      const agrupado = {};
+      state.transactions.forEach(item => {
+        const categoria = item.category || item.type || 'General';
+        const concepto = item.concept || item.detail || 'General';
+        const key = `${categoria}__${concepto}`;
+        if (!agrupado[key]) {
+          agrupado[key] = { categoria, concepto, monto: 0, transacciones: 0 };
+        }
+        agrupado[key].monto += Number(item.amount) || 0;
+        agrupado[key].transacciones += 1;
+      });
+      Object.values(agrupado).sort((a, b) => b.monto - a.monto).forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2 capitalize">${row.categoria}</td>
+          <td class="px-4 py-2">${row.concepto}</td>
+          <td class="px-4 py-2 text-right">${formatter.format(row.monto)}</td>
+          <td class="px-4 py-2">${row.transacciones}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateConciliationTable() {
+      const tbody = document.getElementById('tabla-conciliacion');
+      tbody.innerHTML = '';
+      if (!state.conciliations.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Carga archivos para visualizar la conciliación</td></tr>';
+        return;
+      }
+      state.conciliations.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${formatDate(item.date)}</td>
+          <td class="px-4 py-2">${item.description || '—'}</td>
+          <td class="px-4 py-2">${item.company || '—'}</td>
+          <td class="px-4 py-2">${item.category || '—'}</td>
+          <td class="px-4 py-2">${item.program || '—'}</td>
+          <td class="px-4 py-2 text-right">${formatter.format(Number(item.amount) || 0)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function populateStudentOptions() {
+      const selects = [document.getElementById('ingAlumno')];
+      const nomEmpleadoSelect = document.getElementById('nomEmpleado');
+      selects.forEach(select => {
+        if (!select) return;
+        select.innerHTML = '<option value="" disabled selected>Selecciona una opción</option>';
+        state.students.forEach(student => {
+          const option = document.createElement('option');
+          option.value = student.id;
+          option.textContent = student.name;
+          select.appendChild(option);
+        });
+      });
+      if (nomEmpleadoSelect) {
+        nomEmpleadoSelect.innerHTML = '<option value="" disabled selected>Selecciona empleado</option>';
+        state.employees.forEach(emp => {
+          const opt = document.createElement('option');
+          opt.value = emp.id;
+          opt.textContent = emp.name;
+          nomEmpleadoSelect.appendChild(opt);
+        });
+      }
+    }
+
+    function updateEmployees() {
+      const tbody = document.getElementById('tabla-empleados');
+      tbody.innerHTML = '';
+      if (!state.employees.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Agrega empleados para gestionar la nómina</td></tr>';
+        return;
+      }
+      state.employees.forEach(emp => {
+        const salario = Number(emp.monthlySalary) || 0;
+        const quincena = salario / 2;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${emp.name}</td>
+          <td class="px-4 py-2">${emp.company || '—'}</td>
+          <td class="px-4 py-2 text-right">${formatter.format(salario)}</td>
+          <td class="px-4 py-2 text-right">${formatter.format(quincena)}</td>`;
+        tbody.appendChild(tr);
+      });
+      populateStudentOptions();
+    }
+
+    function updatePayrollPayments() {
+      const lista = document.getElementById('lista-pagos-nomina');
+      lista.innerHTML = '';
+      if (!state.payrollPayments.length) {
+        lista.innerHTML = '<li class="text-center text-slate-400">No hay pagos capturados</li>';
+        return;
+      }
+      state.payrollPayments.forEach(pago => {
+        const empleado = state.employees.find(emp => emp.id === pago.employeeId);
+        const li = document.createElement('li');
+        li.className = 'rounded-lg border border-slate-200 p-3';
+        li.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-medium">${empleado?.name || 'Empleado'}</span>
+            <span class="text-sm text-slate-500">${formatDate(pago.paymentDate)}</span>
+          </div>
+          <p class="text-sm text-slate-500">Quincena ${pago.quincena}</p>
+          <p class="text-sm font-semibold text-emerald-600">${formatter.format(Number(pago.amount) || 0)}</p>`;
+        lista.appendChild(li);
+      });
+    }
+
+    function updateProfessorTable() {
+      const tbody = document.getElementById('tabla-profesores');
+      tbody.innerHTML = '';
+      if (!state.professorPayments.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Registra tu primer pago a profesor</td></tr>';
+        return;
+      }
+      state.professorPayments.forEach(pago => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${formatDate(pago.date)}</td>
+          <td class="px-4 py-2">${pago.name}</td>
+          <td class="px-4 py-2">${pago.concept}</td>
+          <td class="px-4 py-2 text-right">${formatter.format(Number(pago.amount) || 0)}</td>
+          <td class="px-4 py-2">${pago.receiptName || '—'}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updatePayrollCharts() {
+      const chartCanvas = document.getElementById('chart-nomina');
+      if (!chartCanvas) return;
+      const quincenaSeleccionada = document.getElementById('selectQuincena').value || '1';
+      const mesSeleccionado = document.getElementById('selectMesNomina').value;
+      const fechaReferencia = mesSeleccionado ? new Date(`${mesSeleccionado}-01`) : new Date();
+      const objetivo = state.employees.reduce((acc, emp) => acc + (Number(emp.monthlySalary) || 0) / 2, 0);
+      const pagosFiltrados = state.payrollPayments.filter(pago => {
+        if (pago.quincena !== quincenaSeleccionada) return false;
+        const fecha = toDate(pago.paymentDate);
+        return fecha && fecha.getMonth() === fechaReferencia.getMonth() && fecha.getFullYear() === fechaReferencia.getFullYear();
+      });
+      const pagado = pagosFiltrados.reduce((acc, pago) => acc + (Number(pago.amount) || 0), 0);
+      const pendiente = Math.max(0, objetivo - pagado);
+      renderPieChart('chart-nomina', 'nomina', ['Pagado', 'Pendiente'], [pagado, pendiente], ['#22c55e', '#f97316']);
+    }
+
+    document.getElementById('selectQuincena').addEventListener('change', updatePayrollCharts);
+    document.getElementById('selectMesNomina').addEventListener('change', updatePayrollCharts);
+
+    function updateProjections() {
+      if (!state.students.length && !state.transactions.length && !state.employees.length) {
+        return;
+      }
+      const months = [];
+      const baseDate = new Date();
+      for (let i = 0; i < 6; i++) {
+        const date = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
+        months.push(date);
+      }
+      const payrollMensual = state.employees.reduce((acc, emp) => acc + (Number(emp.monthlySalary) || 0), 0);
+      const gasPorMes = {};
+      const now = new Date();
+      state.transactions.filter(t => t.category === 'gasoline').forEach(tx => {
+        const fecha = toDate(tx.date);
+        if (!fecha) return;
+        const diffMeses = (now.getFullYear() - fecha.getFullYear()) * 12 + (now.getMonth() - fecha.getMonth());
+        if (diffMeses >= 0 && diffMeses < 3) {
+          const key = `${fecha.getFullYear()}-${fecha.getMonth()}`;
+          gasPorMes[key] = (gasPorMes[key] || 0) + (Number(tx.amount) || 0);
+        }
+      });
+      const totalGas = Object.values(gasPorMes).reduce((acc, val) => acc + val, 0);
+      const mesesGas = Object.keys(gasPorMes).length || 1;
+      const promedioGas = totalGas / mesesGas;
+
+      const proyecciones = months.map((mes, index) => {
+        const ingresosMes = state.students.reduce((acc, student) => {
+          const planTotal = Number(student.planAmount) || 0;
+          const beca = Number(student.scholarship || 0);
+          const totalDescuento = planTotal * (1 - beca / 100);
+          const mensualidades = Number(student.installments) || 1;
+          const mensualidad = mensualidades ? totalDescuento / mensualidades : totalDescuento;
+          const pagos = state.transactions.filter(t => t.studentId === student.id);
+          const pagado = pagos.reduce((suma, pago) => suma + (Number(pago.amount) || 0), 0);
+          const saldo = Math.max(0, totalDescuento - pagado);
+          const mesesRestantes = mensualidad > 0 ? Math.ceil(saldo / mensualidad) : 0;
+          if (mesesRestantes <= index) return acc;
+          const pagoMes = Math.min(mensualidad, saldo);
+          return acc + pagoMes;
+        }, 0);
+        const egresosMes = payrollMensual + promedioGas;
+        return {
+          mes,
+          ingresos: ingresosMes,
+          egresos: egresosMes,
+          neto: ingresosMes - egresosMes
+        };
+      });
+
+      const tbody = document.getElementById('tabla-proyecciones');
+      tbody.innerHTML = '';
+      proyecciones.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${row.mes.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}</td>
+          <td class="px-4 py-2 text-right text-emerald-600">${formatter.format(row.ingresos)}</td>
+          <td class="px-4 py-2 text-right text-rose-600">${formatter.format(row.egresos)}</td>
+          <td class="px-4 py-2 text-right font-semibold ${row.neto >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${formatter.format(row.neto)}</td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('resumen-proyecciones').textContent = `Nómina mensual: ${formatter.format(payrollMensual)} · Gasolina promedio: ${formatter.format(promedioGas)}`;
+      renderProjectionChart(proyecciones);
+    }
+
+    function renderProjectionChart(rows) {
+      const ctx = document.getElementById('chart-proyecciones');
+      if (!ctx) return;
+      const labels = rows.map(row => row.mes.toLocaleDateString('es-MX', { month: 'short' }));
+      const ingresos = rows.map(row => row.ingresos);
+      const egresos = rows.map(row => row.egresos);
+      const neto = rows.map(row => row.neto);
+      if (state.charts.proyecciones) {
+        state.charts.proyecciones.destroy();
+      }
+      state.charts.proyecciones = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Ingresos', data: ingresos, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.3 },
+            { label: 'Egresos', data: egresos, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.3 },
+            { label: 'Flujo Neto', data: neto, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } },
+          scales: {
+            y: {
+              ticks: {
+                callback: value => formatter.format(value)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => closeModal(btn.dataset.close));
+    });
+
+    document.querySelectorAll('.btn-nueva-transaccion').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tipo = btn.dataset.type;
+        document.getElementById('transactionType').value = tipo;
+        document.querySelectorAll('#formTransaccion [data-form]').forEach(section => {
+          section.classList.toggle('hidden', section.dataset.form !== tipo);
+        });
+        document.getElementById('formTransaccion').reset();
+        if (tipo === 'gasoline') {
+          document.getElementById('gasIva').value = '';
+          document.getElementById('gasTotal').value = '';
+        }
+        document.getElementById('transactionModalTitle').textContent = tipo === 'gasoline' ? 'Nueva Carga de Gasolina' : 'Nuevo Egreso';
+        openModal('transactionModal');
+      });
+    });
+
+    document.getElementById('btnNuevoEmpleado').addEventListener('click', () => {
+      document.getElementById('formEmpleado').reset();
+      openModal('empleadoModal');
+    });
+
+    document.getElementById('btnRegistrarNomina').addEventListener('click', () => {
+      populateStudentOptions();
+      document.getElementById('formNomina').reset();
+      openModal('nominaModal');
+    });
+
+    document.getElementById('btnNuevoAlumno').addEventListener('click', () => {
+      document.getElementById('formAlumno').reset();
+      openModal('alumnoModal');
+    });
+
+    document.getElementById('btnRegistrarIngreso').addEventListener('click', () => {
+      populateStudentOptions();
+      document.getElementById('formIngreso').reset();
+      openModal('ingresoModal');
+    });
+
+    document.getElementById('btnPagoProfesor').addEventListener('click', () => {
+      document.getElementById('formProfesor').reset();
+      openModal('profesorModal');
+    });
+
+    document.getElementById('gasSubtotal').addEventListener('input', syncGasTotals);
+    document.getElementById('gasCantidad').addEventListener('input', syncGasPrice);
+    document.getElementById('gasPrecio').addEventListener('input', syncGasSubtotal);
+    document.getElementById('gasNombre').addEventListener('change', () => {
+      const nombre = document.getElementById('gasNombre').value.trim();
+      document.getElementById('gasTarjeta').value = driverCardMap[nombre] || '';
+    });
+    document.getElementById('gasAuto').addEventListener('change', () => {
+      const auto = document.getElementById('gasAuto').value.trim();
+      document.getElementById('gasMarca').value = autoBrandMap[auto] || '';
+    });
+
+    function syncGasTotals() {
+      const subtotal = Number(document.getElementById('gasSubtotal').value) || 0;
+      const iva = subtotal * 0.16;
+      document.getElementById('gasIva').value = iva.toFixed(2);
+      document.getElementById('gasTotal').value = (subtotal + iva).toFixed(2);
+      syncGasPriceFromSubtotal();
+    }
+
+    function syncGasPrice() {
+      const cantidad = Number(document.getElementById('gasCantidad').value);
+      const precio = Number(document.getElementById('gasPrecio').value);
+      if (cantidad > 0 && precio > 0) {
+        const subtotal = cantidad * precio;
+        document.getElementById('gasSubtotal').value = subtotal.toFixed(2);
+        syncGasTotals();
+      }
+    }
+
+    function syncGasSubtotal() {
+      const cantidad = Number(document.getElementById('gasCantidad').value);
+      const precio = Number(document.getElementById('gasPrecio').value);
+      if (cantidad > 0 && precio > 0) {
+        const subtotal = cantidad * precio;
+        document.getElementById('gasSubtotal').value = subtotal.toFixed(2);
+        syncGasTotals();
+      }
+    }
+
+    function syncGasPriceFromSubtotal() {
+      const subtotal = Number(document.getElementById('gasSubtotal').value);
+      const cantidad = Number(document.getElementById('gasCantidad').value);
+      if (subtotal > 0 && cantidad > 0) {
+        const precio = subtotal / cantidad;
+        document.getElementById('gasPrecio').value = precio.toFixed(2);
+      }
+    }
+
+    document.getElementById('formEmpleado').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = {
+        name: document.getElementById('empNombre').value.trim(),
+        company: document.getElementById('empEmpresa').value.trim(),
+        monthlySalary: Number(document.getElementById('empSalario').value) || 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await userCollection('employees').add(data);
+      closeModal('empleadoModal');
+    });
+
+    document.getElementById('formNomina').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const empleadoId = document.getElementById('nomEmpleado').value;
+      if (!empleadoId) return;
+      const data = {
+        employeeId: empleadoId,
+        quincena: document.getElementById('nomQuincena').value,
+        paymentDate: document.getElementById('nomFecha').value,
+        amount: Number(document.getElementById('nomMonto').value) || 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await userCollection('payroll_payments').add(data);
+      await userCollection('transactions').add({
+        type: 'expense',
+        category: 'payroll',
+        concept: `Pago nómina ${data.quincena}ª quincena`,
+        amount: data.amount,
+        date: data.paymentDate,
+        detail: '',
+        vendor: '',
+        classification: 'Nómina',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      closeModal('nominaModal');
+    });
+
+    document.getElementById('formAlumno').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = {
+        name: document.getElementById('alNombre').value.trim(),
+        enrollmentDate: document.getElementById('alFecha').value,
+        program: document.getElementById('alPrograma').value.trim(),
+        generation: document.getElementById('alGeneracion').value.trim(),
+        company: document.getElementById('alEmpresa').value.trim(),
+        planAmount: Number(document.getElementById('alMonto').value) || 0,
+        installments: Number(document.getElementById('alMensualidades').value) || 1,
+        scholarship: Number(document.getElementById('alBeca').value) || 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await userCollection('students').add(data);
+      closeModal('alumnoModal');
+    });
+
+    document.getElementById('formIngreso').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const alumnoId = document.getElementById('ingAlumno').value;
+      if (!alumnoId) return;
+      const alumno = state.students.find(st => st.id === alumnoId);
+      const data = {
+        type: 'income',
+        category: 'tuition',
+        studentId: alumnoId,
+        studentName: alumno?.name || '',
+        concept: document.getElementById('ingConcepto').value.trim(),
+        amount: Number(document.getElementById('ingMonto').value) || 0,
+        date: document.getElementById('ingFecha').value,
+        reference: document.getElementById('ingReferencia').value.trim(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await userCollection('transactions').add(data);
+      closeModal('ingresoModal');
+    });
+
+    document.getElementById('formProfesor').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const file = document.getElementById('profComprobante').files[0];
+      const receiptName = file ? file.name : '';
+      const data = {
+        name: document.getElementById('profNombre').value.trim(),
+        amount: Number(document.getElementById('profMonto').value) || 0,
+        date: document.getElementById('profFecha').value,
+        concept: document.getElementById('profConcepto').value,
+        receiptName,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await userCollection('professor_payments').add(data);
+      await userCollection('transactions').add({
+        type: 'expense',
+        category: 'professor_payment',
+        concept: `Pago profesor ${data.concept}`,
+        amount: data.amount,
+        date: data.date,
+        detail: data.name,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      closeModal('profesorModal');
+    });
+
+    document.getElementById('formTransaccion').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const tipo = document.getElementById('transactionType').value;
+      if (tipo === 'standard') {
+        await guardarEgresoEstandar();
+      } else {
+        await guardarGasolina();
+      }
+      closeModal('transactionModal');
+    });
+
+    async function guardarEgresoEstandar() {
+      const data = {
+        type: 'expense',
+        category: 'standard_expense',
+        date: document.getElementById('stdFecha').value,
+        amount: Number(document.getElementById('stdMonto').value) || 0,
+        detail: document.getElementById('stdDetalle').value.trim(),
+        vendor: document.getElementById('stdProveedor').value.trim(),
+        reference: document.getElementById('stdReferencia').value.trim(),
+        concept: document.getElementById('stdConcepto').value.trim(),
+        company: document.getElementById('stdEmpresa').value.trim(),
+        classification: document.getElementById('stdClasificacion').value.trim(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await userCollection('transactions').add(data);
+    }
+
+    async function guardarGasolina() {
+      const file = document.getElementById('gasComprobante').files[0];
+      const subtotal = Number(document.getElementById('gasSubtotal').value) || 0;
+      const iva = Number(document.getElementById('gasIva').value) || 0;
+      const total = Number(document.getElementById('gasTotal').value) || subtotal * 1.16;
+      const data = {
+        type: 'expense',
+        category: 'gasoline',
+        date: document.getElementById('gasFecha').value,
+        amount: total,
+        concept: 'Gasolina',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        gasoline: {
+          subtotal,
+          iva,
+          total,
+          quantity: Number(document.getElementById('gasCantidad').value) || null,
+          price: Number(document.getElementById('gasPrecio').value) || null,
+          paymentMethod: document.getElementById('gasFormaPago').value.trim(),
+          driver: document.getElementById('gasNombre').value.trim(),
+          card: document.getElementById('gasTarjeta').value.trim(),
+          vehicle: document.getElementById('gasAuto').value.trim(),
+          brand: document.getElementById('gasMarca').value.trim(),
+          receiptName: file ? file.name : ''
+        }
+      };
+      await userCollection('transactions').add(data);
+    }
+
+    document.getElementById('refreshTransactions').addEventListener('click', () => refreshAllViews());
+
+    const dropZone = document.getElementById('dropZone');
+    const inputConciliacion = document.getElementById('inputConciliacion');
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.add('border-indigo-500', 'bg-indigo-50');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('border-indigo-500', 'bg-indigo-50');
+      });
+    });
+
+    dropZone.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const files = Array.from(event.dataTransfer.files).filter(file => file.type === 'text/csv' || file.name.endsWith('.csv'));
+      if (files.length) {
+        processFiles(files);
+      }
+    });
+
+    inputConciliacion.addEventListener('change', (event) => {
+      const files = Array.from(event.target.files);
+      processFiles(files);
+    });
+
+    window.processFiles = function(files) {
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const text = e.target.result;
+          const rows = text.split(/\r?\n/).filter(Boolean);
+          const headers = rows.shift()?.split(',') || [];
+          rows.forEach(async row => {
+            const values = row.split(',');
+            const record = headers.reduce((acc, header, index) => {
+              acc[header.trim()] = values[index]?.trim();
+              return acc;
+            }, {});
+            const clasificado = clasificarMovimiento(record);
+            await userCollection('conciliations').add(clasificado);
+          });
+        };
+        reader.readAsText(file, 'utf-8');
+      });
+    };
+
+    function clasificarMovimiento(record) {
+      const descripcion = record.Descripcion || record.description || '';
+      const monto = Number(record.Monto || record.amount || 0);
+      const fecha = record.Fecha || record.date || new Date().toISOString().slice(0, 10);
+      const lowerDesc = descripcion.toLowerCase();
+      let categoria = 'General';
+      if (lowerDesc.includes('nomina')) categoria = 'Nómina';
+      else if (lowerDesc.includes('gas')) categoria = 'Gasolina';
+      else if (lowerDesc.includes('inscripcion')) categoria = 'Inscripción';
+      else if (lowerDesc.includes('colegiatura')) categoria = 'Mensualidad';
+      let empresa = 'Corporativo';
+      if (lowerDesc.includes('conde')) empresa = 'Dr Conde';
+      else if (lowerDesc.includes('clinic')) empresa = 'Clínica';
+      const programa = lowerDesc.includes('cirugia') ? 'Cirugía' : (lowerDesc.includes('odontologia') ? 'Odontología' : 'General');
+      const comision = monto * 0.03;
+      return {
+        original: record,
+        description: descripcion,
+        amount: monto,
+        date: fecha,
+        company: empresa,
+        category: categoria,
+        program: programa,
+        commission: comision,
+        processedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+    }
+
+    showSection('dashboard');
+  </script>
+</body>
+</html>
